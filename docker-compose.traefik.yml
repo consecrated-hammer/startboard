@@ -1,0 +1,66 @@
+# Production deployment behind Traefik (unified frontend+backend image).
+#
+# IMPORTANT: no Authelia middleware is attached — Startboard owns its own auth so
+# public share links work for anonymous viewers (cf. the user's `policy: bypass`
+# services). Editing is gated by the app's own login.
+
+services:
+  app:
+    image: ghcr.io/consecrated-hammer/startboard:${TAG:-latest}
+    pull_policy: always
+    container_name: startboard
+    restart: unless-stopped
+
+    environment:
+      - APP_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8002
+      - STARTBOARD_DB_PATH=/data/startboard.db
+      - FAVICON_DIR=/data/icons
+      - LOG_DIR=/data/logs
+      - SESSION_COOKIE_SECURE=true
+      - SESSION_TTL_DAYS=${SESSION_TTL_DAYS:-30}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=${RATE_LIMIT_REQUESTS_PER_MINUTE:-120}
+      - LOGIN_RATE_LIMIT_PER_MINUTE=${LOGIN_RATE_LIMIT_PER_MINUTE:-10}
+      - TZ=${TZ:-Australia/Adelaide}
+      - HOMEPAGE_COMPOSE_PATH=/imports/dockerconfigs/docker-compose.yml
+      - HOMEPAGE_COMPOSE_ENV_PATH=/imports/dockerconfigs/.env
+
+    volumes:
+      - ${STARTBOARD_DATA_HOST_PATH:-./.data}:/data
+      - /mnt/docker/config/dockerconfigs:/imports/dockerconfigs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - traefik_proxy
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.http.routers.startboard.rule=Host(`${STARTBOARD_HOST:-start.batserver.au}`)"
+      - "traefik.http.routers.startboard.entrypoints=websecure"
+      - "traefik.http.routers.startboard.tls.certresolver=letsencrypt"
+      - "traefik.http.services.startboard.loadbalancer.server.port=8002"
+      # Security headers (NO authelia@docker — public read-only share links).
+      - "traefik.http.middlewares.startboard-sec.headers.customResponseHeaders.X-Content-Type-Options=nosniff"
+      - "traefik.http.routers.startboard.middlewares=startboard-sec"
+      # Homepage dashboard integration
+      - "homepage.enable=true"
+      - "homepage.name=Startboard"
+      - "homepage.href=https://${STARTBOARD_HOST:-start.batserver.au}"
+      - "homepage.icon=mdi-bookmark-multiple"
+      - "homepage.group=Projects"
+
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  traefik_proxy:
+    external: true

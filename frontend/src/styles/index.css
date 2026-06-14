@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* Global design tokens. Tailwind utilities in this app already resolve through
+   CSS vars like --color-slate-900, so theme switching can happen centrally. */
+@theme {
+  --color-accent: #0ea5b7;
+  --color-accent-dark: #0b8595;
+}
+
+:root {
+  --font-sans: "Azeret Mono", "IBM Plex Sans", "Segoe UI", sans-serif;
+  --color-board: #0f172a;
+  --color-board-glow: #14324a;
+  --color-panel: rgba(255, 255, 255, 0.04);
+  --color-panel-border: rgba(255, 255, 255, 0.08);
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-icon-tile: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] {
+  --color-accent: #0f766e;
+  --color-accent-dark: #115e59;
+  --color-board: #eef4f5;
+  --color-board-glow: #cfe4df;
+  --color-panel: rgba(255, 255, 255, 0.72);
+  --color-panel-border: rgba(15, 23, 42, 0.1);
+  --color-white: #0f172a;
+
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #ffffff;
+  --color-icon-tile: rgba(15, 23, 42, 0.1);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-board);
+  background-image: radial-gradient(1200px 600px at 70% -10%, var(--color-board-glow) 0%, var(--color-board) 55%);
+  /* Pin the glow to the viewport so scrolling past one screen height doesn't
+     reveal a seam where the background box ends. */
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  color: var(--color-slate-200);
+  font-family: var(--font-sans);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+/* Bookmark/group drag affordance */
+.sb-dragging {
+  opacity: 0.5;
+}
+
+.sb-link:hover {
+  background: color-mix(in oklab, var(--color-slate-100) 8%, transparent);
+}
+
+/* Thin scrollbars for the board */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-slate-100) 18%, transparent) transparent;
+}
+
+body[data-route="public"] .sb-public-panel,
+.sb-public-panel {
+  background: var(--color-panel);
+  border-color: var(--color-panel-border);
+}

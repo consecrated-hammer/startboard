@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Startboard Edge Companion",
+  "description": "Save the current tab to Startboard.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Save to Startboard",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ]
+}

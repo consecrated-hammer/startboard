@@ -1,0 +1,28 @@
+# Local build for testing the unified image (no Traefik). Maps the port directly.
+#   docker compose -f docker-compose.dev.yml up -d --build
+#   open http://localhost:8002
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+        - VITE_APP_VERSION=dev
+    container_name: startboard-dev
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      - APP_ENV=development
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-change-me}
+      - STARTBOARD_DB_PATH=/data/startboard.db
+      - FAVICON_DIR=/data/icons
+      - LOG_DIR=/data/logs
+      - SESSION_COOKIE_SECURE=false
+      - HOMEPAGE_COMPOSE_PATH=/imports/dockerconfigs/docker-compose.yml
+      - HOMEPAGE_COMPOSE_ENV_PATH=/imports/dockerconfigs/.env
+    volumes:
+      - ./.data:/data
+      - /mnt/docker/config/dockerconfigs:/imports/dockerconfigs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro

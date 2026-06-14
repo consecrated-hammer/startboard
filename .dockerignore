@@ -1,0 +1,14 @@
+**/node_modules
+**/.venv
+**/venv
+**/__pycache__
+**/.pytest_cache
+backend/.data
+frontend/dist
+.git
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite*
+_temp

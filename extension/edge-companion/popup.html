@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Startboard</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div>
+          <div class="eyebrow">Startboard</div>
+          <h1>Save bookmark</h1>
+        </div>
+        <button id="resetButton" class="ghost hidden" type="button">Reset</button>
+      </header>
+
+      <section id="message" class="message hidden"></section>
+
+      <section id="setupView" class="view">
+        <p class="intro">Connect this extension to your Startboard server before saving tabs.</p>
+        <label class="field">
+          <span>Startboard URL</span>
+          <input id="baseUrlInput" type="url" placeholder="https://start.example.com" />
+        </label>
+        <label class="field">
+          <span>Extension token</span>
+          <input id="tokenInput" type="password" placeholder="sbx_..." />
+        </label>
+        <div class="actions">
+          <button id="testButton" class="primary" type="button">Test connection</button>
+          <button id="saveConfigButton" class="secondary" type="button">Save setup</button>
+        </div>
+        <p class="hint">Generate the token from Startboard → User Preferences → Browser Extension.</p>
+      </section>
+
+      <section id="readyView" class="view hidden">
+        <div class="card">
+          <div class="bookmark-title" id="tabTitle">Current tab</div>
+          <div class="bookmark-url" id="tabUrl"></div>
+        </div>
+
+        <label class="field">
+          <span>Save in</span>
+          <select id="pageSelect"></select>
+        </label>
+        <label class="field">
+          <span>Group</span>
+          <select id="groupSelect"></select>
+        </label>
+        <label class="field">
+          <span>Description</span>
+          <textarea id="descriptionInput" rows="3" placeholder="Optional note"></textarea>
+        </label>
+
+        <section id="duplicateBox" class="duplicate hidden">
+          <div class="duplicate-title">Already saved</div>
+          <ul id="duplicateList"></ul>
+          <p class="hint">You can still save another copy if you want.</p>
+        </section>
+
+        <div class="actions">
+          <button id="saveBookmarkButton" class="primary" type="button">Save bookmark</button>
+        </div>
+      </section>
+
+      <section id="successView" class="view hidden">
+        <div class="success-icon">✓</div>
+        <h2>Bookmark saved</h2>
+        <p id="successText" class="hint"></p>
+        <div class="actions">
+          <button id="saveAnotherButton" class="secondary" type="button">Save another</button>
+          <a id="openBoardLink" class="primary link-button" href="#" target="_blank" rel="noreferrer">Open Startboard</a>
+        </div>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
