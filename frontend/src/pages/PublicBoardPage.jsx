@@ -303,7 +303,6 @@ function DockerStatusBadge({ status }) {
 export default function PublicBoardPage() {
   const { shareId } = useParams()
   const { settings, preferences } = useAppState()
-  const responsiveCols = useColumnCount()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -393,6 +392,9 @@ export default function PublicBoardPage() {
     }).filter((group) => group.bookmarks.length > 0)
   }, [data, searchQuery])
 
+  // When a Card max width is set, fit the responsive count to it; otherwise
+  // columns stretch (1fr) and the hook falls back to its default min width.
+  const responsiveCols = useColumnCount(mergedPage?.card_max_width ?? 0, mergedPage?.card_gap_x ?? 16)
   const maxCols = mergedPage?.max_cols ?? 0
   const colCount = Math.max(1, maxCols > 0 ? Math.min(responsiveCols, maxCols) : responsiveCols)
   const columns = useMemo(() => (
