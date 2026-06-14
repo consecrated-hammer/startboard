@@ -422,7 +422,7 @@ export default function BoardPage() {
     const startY = event.clientY
     const originX = Number(group.manual_x) || 24
     const originY = Number(group.manual_y) || 24
-    const nextZ = Math.max(...groups.map((item) => Number(item.manual_z) || 0), 0) + 1
+    const nextZ = Math.max(...groupsRef.current.map((item) => Number(item.manual_z) || 0), 0) + 1
 
     setManualDragGroupId(group.id)
     setGroups((current) => current.map((item) => (
