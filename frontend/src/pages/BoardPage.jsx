@@ -135,11 +135,13 @@ export default function BoardPage() {
   const { pageId } = useParams()
   const navigate = useNavigate()
   const { offlineAuth } = useAuth()
-  const responsiveCols = useColumnCount()
   const [board, setBoard] = useState(null)
   // max_cols 0 (or null) = "Max": fill the screen using the responsive count.
   const maxCols = board?.page?.max_cols ?? 0
   const currentPageId = board?.page?.id ?? null
+  // When a Card max width is set, the responsive count fits to it; otherwise
+  // columns stretch (1fr) and we fall back to the hook's default min width.
+  const responsiveCols = useColumnCount(board?.page?.card_max_width ?? 0, board?.page?.card_gap_x ?? 16)
   const colCount = maxCols > 0 ? Math.min(responsiveCols, maxCols) : responsiveCols
   const colCountRef = useRef(colCount)
   useEffect(() => { colCountRef.current = colCount }, [colCount])
