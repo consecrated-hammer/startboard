@@ -4,7 +4,7 @@
 # =============================================================================
 
 # ---- Stage 1: build the React/Vite frontend ----
-FROM node:22-alpine AS frontend-build
+FROM node:26-alpine AS frontend-build
 WORKDIR /frontend
 
 COPY frontend/package*.json ./
