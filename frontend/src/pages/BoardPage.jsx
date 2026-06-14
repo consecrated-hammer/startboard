@@ -868,6 +868,8 @@ export default function BoardPage() {
         <BookmarkModal
           bookmark={bookmarkModal.bookmark}
           groups={groups}
+          pages={pages}
+          currentPageId={currentPageId}
           currentGroupId={bookmarkModal.group?.id ?? bookmarkModal.bookmark?.group_id ?? null}
           onSave={saveBookmark}
           onDelete={deleteBookmark}

@@ -80,15 +80,26 @@ def update_bookmark(
         docker_ref = payload.docker_ref.strip() if payload.docker_ref is not None else b["docker_ref"]
         position = payload.position if payload.position is not None else b["position"]
 
-        # If a target group is given, ensure it belongs to the same page.
+        # If a target group is given, allow moving within or across pages the
+        # caller can edit. Cross-page moves append to the end of the new group.
         group_id = b["group_id"]
         if payload.group_id is not None and payload.group_id != group_id:
             target = conn.execute(
                 "SELECT page_id FROM groups WHERE id = ?", (payload.group_id,)
             ).fetchone()
-            if target is None or target["page_id"] != page["id"]:
-                raise HTTPException(status_code=400, detail="Target group not on this page")
+            if target is None:
+                raise HTTPException(status_code=400, detail="Target group not found")
+            if target["page_id"] != page["id"]:
+                target_page = get_page(conn, target["page_id"])
+                if not can_edit(conn, user, target_page):
+                    raise HTTPException(status_code=403, detail="Not allowed to edit the target page")
             group_id = payload.group_id
+            if payload.position is None:
+                max_pos = conn.execute(
+                    "SELECT COALESCE(MAX(position), -1) AS m FROM bookmarks WHERE group_id = ?",
+                    (group_id,),
+                ).fetchone()["m"]
+                position = max_pos + 1
 
         # Re-resolve icon when an explicit icon is given, or url changed and none set.
         if payload.icon_url is not None:
