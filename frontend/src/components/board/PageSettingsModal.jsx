@@ -73,6 +73,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
   const [bgSlideshowIntervalUnit, setBgSlideshowIntervalUnit] = useState(page.bg_slideshow_interval_unit || 'seconds')
   const [bgSlideshowAdvanceMode, setBgSlideshowAdvanceMode] = useState(page.bg_slideshow_advance_mode || 'random')
   const [accent, setAccent] = useState(page.accent || '')
+  const [bookmarkTitleColor, setBookmarkTitleColor] = useState(page.bookmark_title_color || '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [copiedShareLink, setCopiedShareLink] = useState(false)
@@ -194,6 +195,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
       bg_color: bgImageMode === 'solid' ? (bgColor.trim() || null) : null,
       bg_image: bgImageMode === 'external' ? bgImage.trim() : '',
       accent: accent.trim(),
+      bookmark_title_color: bookmarkTitleColor.trim(),
       single_image_id: desiredSingleId,
       rotation_image_ids: desiredRotationIds,
     }
@@ -202,7 +204,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
     bgRenderEnabled, bgRenderHeight, bgRenderPosition, bgRenderWidth, bgSlideshowAdvanceMode,
     bgSlideshowIntervalUnit, bgSlideshowIntervalValue, cardGap, cardGapX,
     cardMaxWidth, description, groupAlign, layoutMode, maxCols, openNewTab, page.title, pageRotationImageIds,
-    pageSingleImageId, searchMode, showOverview, singleRowOrder, title, bookmarkGap, accent,
+    pageSingleImageId, searchMode, showOverview, singleRowOrder, title, bookmarkGap, accent, bookmarkTitleColor,
   ])
 
   const persistDraft = useCallback(async () => {
@@ -674,6 +676,9 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
                   <SettingsGroup>
                     <SettingsRow label="Accent colour" stack>
                       <ColorField value={accent} onChange={setAccent} />
+                    </SettingsRow>
+                    <SettingsRow label="Bookmark title colour" hint="Default colour for bookmark labels across this page. Groups and individual bookmarks can override it." stack>
+                      <ColorField value={bookmarkTitleColor} onChange={setBookmarkTitleColor} />
                     </SettingsRow>
                   </SettingsGroup>
 

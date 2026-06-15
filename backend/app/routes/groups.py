@@ -54,9 +54,9 @@ def create_group(page_id: int, payload: GroupCreate, user: dict = Depends(requir
         cur = conn.execute(
             """
             INSERT INTO groups (
-                page_id, title, icon_url, bg_color, header_bg_color, header_text_color, transparency, display_mode, icon_size, bookmark_align,
+                page_id, title, icon_url, bg_color, header_bg_color, header_text_color, bookmark_title_color, transparency, display_mode, icon_size, bookmark_align,
                 visible_limit, bookmark_sort, col, position, manual_x, manual_y, manual_z, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 page_id,
@@ -65,6 +65,7 @@ def create_group(page_id: int, payload: GroupCreate, user: dict = Depends(requir
                 payload.bg_color or None,
                 payload.header_bg_color or None,
                 payload.header_text_color or None,
+                payload.bookmark_title_color or None,
                 payload.transparency or 0,
                 payload.display_mode or "list",
                 payload.icon_size or "small",
@@ -84,7 +85,7 @@ def create_group(page_id: int, payload: GroupCreate, user: dict = Depends(requir
         g = conn.execute("SELECT * FROM groups WHERE id = ?", (cur.lastrowid,)).fetchone()
         return {
             "id": g["id"], "page_id": g["page_id"], "title": g["title"], "icon_url": g["icon_url"],
-            "bg_color": g["bg_color"], "header_bg_color": g["header_bg_color"], "header_text_color": g["header_text_color"],
+            "bg_color": g["bg_color"], "header_bg_color": g["header_bg_color"], "header_text_color": g["header_text_color"], "bookmark_title_color": g["bookmark_title_color"],
             "transparency": g["transparency"], "display_mode": g["display_mode"],
             "icon_size": g["icon_size"], "bookmark_align": g["bookmark_align"], "visible_limit": g["visible_limit"], "column": g["col"],
             "position": g["position"], "bookmark_sort": g["bookmark_sort"], "manual_x": g["manual_x"], "manual_y": g["manual_y"], "manual_z": g["manual_z"], "bookmarks": []
@@ -102,6 +103,7 @@ def update_group(group_id: int, payload: GroupUpdate, user: dict = Depends(requi
         bg_color = group["bg_color"] if payload.bg_color is None else (payload.bg_color or None)
         header_bg_color = group["header_bg_color"] if payload.header_bg_color is None else (payload.header_bg_color or None)
         header_text_color = group["header_text_color"] if payload.header_text_color is None else (payload.header_text_color or None)
+        bookmark_title_color = group["bookmark_title_color"] if payload.bookmark_title_color is None else (payload.bookmark_title_color or None)
         transparency = group["transparency"] if payload.transparency is None else payload.transparency
         display_mode = payload.display_mode if payload.display_mode is not None else group["display_mode"]
         icon_size = payload.icon_size if payload.icon_size is not None else group["icon_size"]
@@ -144,11 +146,11 @@ def update_group(group_id: int, payload: GroupUpdate, user: dict = Depends(requi
                 manual_y = group["manual_y"]
         conn.execute(
             """
-            UPDATE groups SET page_id=?, title=?, icon_url=?, bg_color=?, header_bg_color=?, header_text_color=?, transparency=?, display_mode=?,
+            UPDATE groups SET page_id=?, title=?, icon_url=?, bg_color=?, header_bg_color=?, header_text_color=?, bookmark_title_color=?, transparency=?, display_mode=?,
                 icon_size=?, bookmark_align=?, visible_limit=?, bookmark_sort=?, col=?, position=?, manual_x=?, manual_y=?, manual_z=?, updated_at=? WHERE id=?
             """,
             (
-                target_page_id, title, icon_url, bg_color, header_bg_color, header_text_color, transparency, display_mode,
+                target_page_id, title, icon_url, bg_color, header_bg_color, header_text_color, bookmark_title_color, transparency, display_mode,
                 icon_size, bookmark_align, visible_limit, bookmark_sort, target_col, position, manual_x, manual_y, manual_z, now_iso(), group_id,
             ),
         )
@@ -162,6 +164,7 @@ def update_group(group_id: int, payload: GroupUpdate, user: dict = Depends(requi
             "bg_color": g["bg_color"],
             "header_bg_color": g["header_bg_color"],
             "header_text_color": g["header_text_color"],
+            "bookmark_title_color": g["bookmark_title_color"],
             "transparency": g["transparency"],
             "display_mode": g["display_mode"],
             "icon_size": g["icon_size"],
@@ -190,12 +193,12 @@ def duplicate_group(group_id: int, user: dict = Depends(require_user)):
         cur = conn.execute(
             """
             INSERT INTO groups (
-                page_id, title, icon_url, bg_color, header_bg_color, header_text_color, transparency, display_mode, icon_size, bookmark_align,
+                page_id, title, icon_url, bg_color, header_bg_color, header_text_color, bookmark_title_color, transparency, display_mode, icon_size, bookmark_align,
                 visible_limit, bookmark_sort, col, position, manual_x, manual_y, manual_z, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                group["page_id"], f'{group["title"]} Copy', group["icon_url"], group["bg_color"], group["header_bg_color"], group["header_text_color"], group["transparency"],
+                group["page_id"], f'{group["title"]} Copy', group["icon_url"], group["bg_color"], group["header_bg_color"], group["header_text_color"], group["bookmark_title_color"], group["transparency"],
                 group["display_mode"], group["icon_size"], group["bookmark_align"], group["visible_limit"], group["bookmark_sort"],
                 group["col"], max_pos + 1, group["manual_x"] + 24, group["manual_y"] + 24, _next_manual_z(conn, group["page_id"]), ts, ts,
             ),
@@ -206,19 +209,19 @@ def duplicate_group(group_id: int, user: dict = Depends(require_user)):
                 """
                 INSERT INTO bookmarks (
                     group_id, title, url, icon_url, description, source_type, source_ref,
-                    docker_ref, position, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    docker_ref, title_color, position, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     new_group_id, bookmark["title"], bookmark["url"], bookmark["icon_url"], bookmark["description"],
-                    None, None, bookmark["docker_ref"], bookmark["position"], ts, ts,
+                    None, None, bookmark["docker_ref"], bookmark["title_color"] if "title_color" in bookmark.keys() else None, bookmark["position"], ts, ts,
                 ),
             )
         conn.commit()
         g = conn.execute("SELECT * FROM groups WHERE id = ?", (new_group_id,)).fetchone()
         return {
             "id": g["id"], "page_id": g["page_id"], "title": g["title"], "icon_url": g["icon_url"],
-            "bg_color": g["bg_color"], "header_bg_color": g["header_bg_color"], "header_text_color": g["header_text_color"],
+            "bg_color": g["bg_color"], "header_bg_color": g["header_bg_color"], "header_text_color": g["header_text_color"], "bookmark_title_color": g["bookmark_title_color"],
             "transparency": g["transparency"], "display_mode": g["display_mode"],
             "icon_size": g["icon_size"], "bookmark_align": g["bookmark_align"], "visible_limit": g["visible_limit"],
             "bookmark_sort": g["bookmark_sort"], "column": g["col"], "position": g["position"], "manual_x": g["manual_x"], "manual_y": g["manual_y"], "manual_z": g["manual_z"],

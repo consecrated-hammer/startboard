@@ -205,7 +205,7 @@ function IconResults({ title = 'Results', subtitle = '', busy, error, empty, chi
   )
 }
 
-function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor, transparency, displayMode, iconSize, bookmarkAlign, visibleLimit, bookmarks = [] }) {
+function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor, bookmarkTitleColor, transparency, displayMode, iconSize, bookmarkAlign, visibleLimit, bookmarks = [] }) {
   const sourceBookmarks = bookmarks.length ? bookmarks : PREVIEW_BOOKMARKS
   const previewBookmarks = visibleLimit > 0 ? sourceBookmarks.slice(0, visibleLimit) : sourceBookmarks
   const resolvedIconSize = PREVIEW_ICON_SIZE_MAP[iconSize] || PREVIEW_ICON_SIZE_MAP.small
@@ -253,7 +253,7 @@ function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor,
                   style={{ fontSize: `${0.76 + (index * 0.08)}rem` }}
                 >
                   <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={Math.max(16, resolvedIconSize - 2)} />
-                  <span className="truncate">{bookmark.title}</span>
+                  <span className="truncate" style={{ color: bookmarkTitleColor || undefined }}>{bookmark.title}</span>
                 </span>
               ))}
             </div>
@@ -280,7 +280,7 @@ function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor,
               <div key={bookmark.id} className={`sb-link flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-200 ${itemJustifyClass} ${itemTextClass}`}>
                 <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} />
                 <span className={`min-w-0 flex-1 ${displayMode === 'detailed' ? '' : 'truncate'}`}>
-                  <span className="block truncate">{bookmark.title}</span>
+                  <span className="block truncate" style={{ color: bookmarkTitleColor || undefined }}>{bookmark.title}</span>
                   {displayMode === 'detailed' && bookmark.description && (
                     <span className="mt-0.5 block truncate text-xs text-slate-400">{bookmark.description}</span>
                   )}
@@ -305,6 +305,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
   const [bgColor, setBgColor] = useState(group?.bg_color || '')
   const [headerBgColor, setHeaderBgColor] = useState(group?.header_bg_color || '')
   const [headerTextColor, setHeaderTextColor] = useState(group?.header_text_color || '')
+  const [bookmarkTitleColor, setBookmarkTitleColor] = useState(group?.bookmark_title_color || '')
   const [transparency, setTransparency] = useState(group?.transparency ?? 0)
   const [displayMode, setDisplayMode] = useState(group?.display_mode || 'list')
   const [iconSize, setIconSize] = useState(group?.icon_size || 'small')
@@ -519,6 +520,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
         bg_color: bgColor.trim(),
         header_bg_color: headerBgColor.trim(),
         header_text_color: headerTextColor.trim(),
+        bookmark_title_color: bookmarkTitleColor.trim(),
         transparency,
         display_mode: displayMode,
         icon_size: iconSize,
@@ -585,6 +587,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
             bookmarks={group?.bookmarks || []}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
+            bookmarkTitleColor={bookmarkTitleColor}
             bookmarkAlign={bookmarkAlign}
           />
         </div>
@@ -704,6 +707,11 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
                 <ColorField value={headerTextColor} onChange={setHeaderTextColor} />
               </div>
               <div>
+                <label className={label}>Bookmark title colour</label>
+                <ColorField value={bookmarkTitleColor} onChange={setBookmarkTitleColor} />
+                <p className="mt-1 text-xs text-slate-500">Default for bookmarks in this group. Overrides the page default; a bookmark’s own colour wins.</p>
+              </div>
+              <div>
                 <label className={label}>Widget transparency</label>
                 <RangeField value={transparency} onChange={setTransparency} min={0} max={100} unit="%" format={(value) => `${value}%`} />
               </div>
@@ -768,6 +776,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
               bookmarks={group?.bookmarks || []}
               headerBgColor={headerBgColor}
               headerTextColor={headerTextColor}
+              bookmarkTitleColor={bookmarkTitleColor}
               bookmarkAlign={bookmarkAlign}
             />
           </div>

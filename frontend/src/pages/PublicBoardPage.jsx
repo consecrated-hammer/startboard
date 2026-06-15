@@ -528,7 +528,10 @@ export default function PublicBoardPage() {
                         }}
                       >
                         <Favicon iconUrl={b.icon_url} title={b.title} show={preferences.show_website_icons} />
-                        <span className="min-w-0 flex-1 truncate">{b.title}</span>
+                        <span
+                          className="min-w-0 flex-1 truncate"
+                          style={{ color: b.title_color || g.bookmark_title_color || mergedPage?.bookmark_title_color || undefined }}
+                        >{b.title}</span>
                         <DockerStatusBadge status={b.docker_status} />
                         {!mergedPage?.open_new_tab && isBookmarkLaunchable(b) && <ExternalLink className="h-3.5 w-3.5 text-slate-500" />}
                       </button>

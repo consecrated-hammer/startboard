@@ -23,9 +23,11 @@ def create_bookmark_in_group(
     docker_ref: str | None = None,
     source_type: str | None = None,
     source_ref: str | None = None,
+    title_color: str | None = None,
 ):
     cleaned_url = url.strip()
     cleaned_title = (title or "").strip() or domain_of(cleaned_url) or cleaned_url
+    cleaned_title_color = (title_color or "").strip() or None
     if icon_url is not None:
         resolved_icon = ingest_remote_icon(icon_url or (resolve_icon(cleaned_url) if is_launchable_url(cleaned_url) else None))
     else:
@@ -47,9 +49,9 @@ def create_bookmark_in_group(
         """
         INSERT INTO bookmarks (
             group_id, title, url, icon_url, description, source_type, source_ref,
-            docker_ref, position, created_at, updated_at
+            docker_ref, title_color, position, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             group_id,
@@ -60,6 +62,7 @@ def create_bookmark_in_group(
             cleaned_source_type,
             cleaned_source_ref,
             cleaned_docker_ref,
+            cleaned_title_color,
             position,
             ts,
             ts,

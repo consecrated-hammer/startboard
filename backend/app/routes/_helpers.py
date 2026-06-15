@@ -90,6 +90,7 @@ def page_to_dict(page, user: dict | None, can_edit_flag: bool) -> dict:
         "bg_color": page["bg_color"],
         "bg_image": page["bg_image"],
         "accent": page["accent"],
+        "bookmark_title_color": page["bookmark_title_color"] if "bookmark_title_color" in page.keys() else None,
         "can_edit": can_edit_flag,
         "is_owner": bool(user and page["owner_id"] == user["id"]),
     }
@@ -113,6 +114,7 @@ def group_to_dict(group, bookmarks: list, bookmark_extras: dict[int, dict] | Non
         "bg_color": group["bg_color"] if "bg_color" in group.keys() else None,
         "header_bg_color": group["header_bg_color"] if "header_bg_color" in group.keys() else None,
         "header_text_color": group["header_text_color"] if "header_text_color" in group.keys() else None,
+        "bookmark_title_color": group["bookmark_title_color"] if "bookmark_title_color" in group.keys() else None,
         "transparency": group["transparency"] if "transparency" in group.keys() else 0,
         "display_mode": group["display_mode"] if "display_mode" in group.keys() else "list",
         "icon_size": group["icon_size"] if "icon_size" in group.keys() else "small",
@@ -139,6 +141,7 @@ def bookmark_to_dict(b, extra: dict | None = None) -> dict:
         "launchable": launchable,
         "icon_url": b["icon_url"],
         "description": b["description"],
+        "title_color": b["title_color"] if "title_color" in b.keys() else None,
         "position": b["position"],
         "source_type": b["source_type"],
         "source_ref": b["source_ref"],

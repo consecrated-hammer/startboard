@@ -235,6 +235,7 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
         bg_color = pick(payload.bg_color, page["bg_color"]) or None
         bg_image = pick(payload.bg_image, page["bg_image"]) or None
         accent = pick(payload.accent, page["accent"]) or None
+        bookmark_title_color = pick(payload.bookmark_title_color, page["bookmark_title_color"] if "bookmark_title_color" in page.keys() else None) or None
         if bg_image_mode in {"managed_single", "managed_rotation"}:
             if bg_image_mode == "managed_single" and bg_managed_image_id:
                 image = get_owner_image(conn, page["owner_id"], bg_managed_image_id)
@@ -247,7 +248,7 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
                 group_align=?, search_mode=?, show_overview=?, analytics_enabled=?, bg_image_mode=?, bg_managed_image_id=?, bg_image_fit=?, bg_image_position=?,
                 bg_render_enabled=?, bg_render_width=?, bg_render_height=?, bg_render_position=?,
                 bg_slideshow_enabled=?, bg_slideshow_interval_value=?, bg_slideshow_interval_unit=?, bg_slideshow_advance_mode=?,
-                bg_color=?, bg_image=?, accent=?, updated_at=?
+                bg_color=?, bg_image=?, accent=?, bookmark_title_color=?, updated_at=?
             WHERE id=?
             """,
             (title, description, slug, position, visibility, share_id, is_archived,
@@ -255,7 +256,7 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
              group_align, search_mode, show_overview, analytics_enabled, bg_image_mode, bg_managed_image_id, bg_image_fit, bg_image_position,
              bg_render_enabled, bg_render_width, bg_render_height, bg_render_position,
              bg_slideshow_enabled, bg_slideshow_interval_value, bg_slideshow_interval_unit, bg_slideshow_advance_mode,
-             bg_color, bg_image, accent, now_iso(), page_id),
+             bg_color, bg_image, accent, bookmark_title_color, now_iso(), page_id),
         )
         ts = now_iso()
         if bg_image_mode == "managed_single" and bg_managed_image_id:
@@ -390,9 +391,9 @@ def duplicate_page(page_id: int, user: dict = Depends(require_user)):
                 group_align, search_mode, show_overview, analytics_enabled,
                 bg_image_mode, bg_managed_image_id, bg_image_fit, bg_image_position, bg_render_enabled, bg_render_width, bg_render_height,
                 bg_render_position, bg_slideshow_enabled, bg_slideshow_interval_value, bg_slideshow_interval_unit,
-                bg_slideshow_advance_mode, bg_color, bg_image, accent, created_at, updated_at
+                bg_slideshow_advance_mode, bg_color, bg_image, accent, bookmark_title_color, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, 'private', NULL, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, 'private', NULL, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 page["owner_id"], base_title, page["description"], clone_slug, max_pos + 1,
@@ -401,7 +402,8 @@ def duplicate_page(page_id: int, user: dict = Depends(require_user)):
                 page["analytics_enabled"], page["bg_image_mode"], page["bg_managed_image_id"], page["bg_image_fit"], page["bg_image_position"],
                 page["bg_render_enabled"], page["bg_render_width"], page["bg_render_height"], page["bg_render_position"],
                 page["bg_slideshow_enabled"], page["bg_slideshow_interval_value"], page["bg_slideshow_interval_unit"],
-                page["bg_slideshow_advance_mode"], page["bg_color"], page["bg_image"], page["accent"], ts, ts,
+                page["bg_slideshow_advance_mode"], page["bg_color"], page["bg_image"], page["accent"],
+                page["bookmark_title_color"] if "bookmark_title_color" in page.keys() else None, ts, ts,
             ),
         )
         new_page_id = cur.lastrowid
@@ -410,12 +412,13 @@ def duplicate_page(page_id: int, user: dict = Depends(require_user)):
             group_cur = conn.execute(
                 """
                 INSERT INTO groups (
-                    page_id, title, icon_url, bg_color, header_bg_color, header_text_color, transparency, display_mode, icon_size, bookmark_align,
+                    page_id, title, icon_url, bg_color, header_bg_color, header_text_color, bookmark_title_color, transparency, display_mode, icon_size, bookmark_align,
                     visible_limit, source_type, source_ref, bookmark_sort, col, position, manual_x, manual_y, manual_z, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    new_page_id, group["title"], group["icon_url"], group["bg_color"], group["header_bg_color"], group["header_text_color"], group["transparency"],
+                    new_page_id, group["title"], group["icon_url"], group["bg_color"], group["header_bg_color"], group["header_text_color"],
+                    group["bookmark_title_color"] if "bookmark_title_color" in group.keys() else None, group["transparency"],
                     group["display_mode"], group["icon_size"], group["bookmark_align"], group["visible_limit"], None, None,
                     group["bookmark_sort"], group["col"], group["position"], group["manual_x"] if "manual_x" in group.keys() else 24,
                     group["manual_y"] if "manual_y" in group.keys() else 24, group["manual_z"] if "manual_z" in group.keys() else 0, ts, ts,
@@ -435,12 +438,13 @@ def duplicate_page(page_id: int, user: dict = Depends(require_user)):
                 """
                 INSERT INTO bookmarks (
                     group_id, title, url, icon_url, description, source_type, source_ref,
-                    docker_ref, position, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    docker_ref, title_color, position, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     group_map[bookmark["group_id"]], bookmark["title"], bookmark["url"], bookmark["icon_url"],
-                    bookmark["description"], None, None, bookmark["docker_ref"], bookmark["position"], ts, ts,
+                    bookmark["description"], None, None, bookmark["docker_ref"],
+                    bookmark["title_color"] if "title_color" in bookmark.keys() else None, bookmark["position"], ts, ts,
                 ),
             )
         conn.commit()
