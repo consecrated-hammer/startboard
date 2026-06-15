@@ -264,6 +264,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
   )
   const [url, setUrl] = useState(bookmark?.url || '')
   const [title, setTitle] = useState(bookmark?.title || '')
+  const [titleColor, setTitleColor] = useState(bookmark?.title_color || '')
   const [description, setDescription] = useState(bookmark?.description || '')
   const [dockerRef, setDockerRef] = useState(bookmark?.docker_ref || '')
   const [groupId, setGroupId] = useState(String(bookmark?.group_id || currentGroupId || ''))
@@ -516,6 +517,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
         group_id: groupId ? Number(groupId) : undefined,
         url: url.trim(),
         title: title.trim() || null,
+        title_color: titleColor.trim() || null,
         description: description.trim() || null,
         icon_url: editing && !iconSourceDirty ? (bookmark?.icon_url ?? null) : (resolvedIconUrl || null),
         docker_ref: dockerRef.trim() || null,
@@ -669,6 +671,10 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
           </Labeled>
           <Labeled text="Title">
             <input className={input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the site's domain" />
+          </Labeled>
+          <Labeled text="Title colour (optional)">
+            <ColorField value={titleColor} onChange={setTitleColor} />
+            <p className="mt-1 text-xs text-slate-500">Overrides the group and page defaults. Leave blank to inherit.</p>
           </Labeled>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <Labeled text="Description (optional)">

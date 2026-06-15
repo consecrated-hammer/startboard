@@ -97,6 +97,7 @@ def view_shared(share_id: str):
                     public_share_id=share_id,
                 ),
                 "accent": page["accent"],
+                "bookmark_title_color": page["bookmark_title_color"] if "bookmark_title_color" in page.keys() else None,
             },
             "groups": out_groups,
             "can_edit": False,

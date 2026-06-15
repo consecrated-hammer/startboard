@@ -818,6 +818,7 @@ export default function BoardPage() {
                       showWebsiteIcons={preferences.show_website_icons}
                       cardGap={board.page.card_gap}
                       bookmarkGap={board.page.bookmark_gap}
+                      pageTitleColor={board.page.bookmark_title_color}
                       handlers={handlers}
                     />
                   </div>
@@ -846,6 +847,7 @@ export default function BoardPage() {
                     showWebsiteIcons={preferences.show_website_icons}
                     cardGap={board.page.card_gap}
                     bookmarkGap={board.page.bookmark_gap}
+                    pageTitleColor={board.page.bookmark_title_color}
                     handlers={handlers}
                   />
                 ))}

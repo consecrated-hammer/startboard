@@ -86,6 +86,7 @@ class PageUpdate(BaseModel):
     bg_color: Optional[str] = Field(default=None, max_length=32)
     bg_image: Optional[str] = Field(default=None, max_length=2048)
     accent: Optional[str] = Field(default=None, max_length=32)
+    bookmark_title_color: Optional[str] = Field(default=None, max_length=32)
 
 
 class PageOut(BaseModel):
@@ -107,6 +108,7 @@ class GroupCreate(BaseModel):
     bg_color: Optional[str] = Field(default=None, max_length=32)
     header_bg_color: Optional[str] = Field(default=None, max_length=32)
     header_text_color: Optional[str] = Field(default=None, max_length=32)
+    bookmark_title_color: Optional[str] = Field(default=None, max_length=32)
     transparency: Optional[int] = Field(default=0, ge=0, le=100)
     display_mode: Optional[GroupDisplayMode] = None
     icon_size: Optional[GroupIconSize] = None
@@ -120,6 +122,7 @@ class GroupUpdate(BaseModel):
     bg_color: Optional[str] = Field(default=None, max_length=32)
     header_bg_color: Optional[str] = Field(default=None, max_length=32)
     header_text_color: Optional[str] = Field(default=None, max_length=32)
+    bookmark_title_color: Optional[str] = Field(default=None, max_length=32)
     transparency: Optional[int] = Field(default=None, ge=0, le=100)
     display_mode: Optional[GroupDisplayMode] = None
     icon_size: Optional[GroupIconSize] = None
@@ -140,6 +143,7 @@ class BookmarkCreate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=500)
     icon_url: Optional[str] = None
     docker_ref: Optional[str] = Field(default=None, max_length=200)
+    title_color: Optional[str] = Field(default=None, max_length=32)
 
 
 class BookmarkUpdate(BaseModel):
@@ -148,6 +152,7 @@ class BookmarkUpdate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=500)
     icon_url: Optional[str] = None
     docker_ref: Optional[str] = Field(default=None, max_length=200)
+    title_color: Optional[str] = Field(default=None, max_length=32)
     group_id: Optional[int] = None
     position: Optional[int] = None
 

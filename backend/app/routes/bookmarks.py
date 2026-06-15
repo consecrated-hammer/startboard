@@ -60,6 +60,7 @@ def create_bookmark(
             description=payload.description,
             icon_url=payload.icon_url,
             docker_ref=payload.docker_ref,
+            title_color=payload.title_color,
         )
         conn.commit()
         return bookmark_to_dict(b)
@@ -78,6 +79,7 @@ def update_bookmark(
         title = payload.title.strip() if payload.title is not None else b["title"]
         description = payload.description if payload.description is not None else b["description"]
         docker_ref = payload.docker_ref.strip() if payload.docker_ref is not None else b["docker_ref"]
+        title_color = (payload.title_color or None) if payload.title_color is not None else b["title_color"]
         position = payload.position if payload.position is not None else b["position"]
 
         # If a target group is given, allow moving within or across pages the
@@ -112,10 +114,10 @@ def update_bookmark(
 
         conn.execute(
             """
-            UPDATE bookmarks SET group_id=?, title=?, url=?, icon_url=?, description=?, docker_ref=?, position=?, updated_at=?
+            UPDATE bookmarks SET group_id=?, title=?, url=?, icon_url=?, description=?, docker_ref=?, title_color=?, position=?, updated_at=?
             WHERE id=?
             """,
-            (group_id, title, url, icon, description, docker_ref or None, position, now_iso(), bookmark_id),
+            (group_id, title, url, icon, description, docker_ref or None, title_color, position, now_iso(), bookmark_id),
         )
         conn.commit()
         out = conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
@@ -137,12 +139,12 @@ def duplicate_bookmark(bookmark_id: int, user: dict = Depends(require_user)):
             """
             INSERT INTO bookmarks (
                 group_id, title, url, icon_url, description, source_type, source_ref,
-                docker_ref, position, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                docker_ref, title_color, position, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 b["group_id"], f'{b["title"]} Copy', b["url"], b["icon_url"], b["description"],
-                None, None, b["docker_ref"], max_pos + 1, ts, ts,
+                None, None, b["docker_ref"], b["title_color"], max_pos + 1, ts, ts,
             ),
         )
         conn.commit()
