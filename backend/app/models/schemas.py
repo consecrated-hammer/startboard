@@ -176,6 +176,11 @@ class ReorderRequest(BaseModel):
     groups: list[ReorderGroup]
 
 
+class PagePositionsRequest(BaseModel):
+    """Tab-bar order: page ids in their desired left-to-right order."""
+    ids: list[int]
+
+
 # ---- Admin: users & grants ----
 class AdminUserCreate(BaseModel):
     username: str = Field(min_length=1, max_length=64)
