@@ -193,6 +193,22 @@ export default function BoardPage() {
     return list
   }, [])
 
+  // Persist tab-bar order. Optimistically reorder local state, then save; on
+  // failure reload from the server to resync.
+  const reorderPages = useCallback(async (orderedIds) => {
+    setPages((current) => {
+      const byId = new Map(current.map((p) => [p.id, p]))
+      const next = orderedIds.map((id) => byId.get(id)).filter(Boolean)
+      offlineStore.writePageList(next)
+      return next
+    })
+    try {
+      await pagesAPI.setPositions(orderedIds)
+    } catch {
+      await loadPages()
+    }
+  }, [loadPages])
+
   const applyBoardData = useCallback((data, offline = false) => {
     const nextBoard = offline
       ? {
@@ -732,6 +748,7 @@ export default function BoardPage() {
         currentPage={board?.page}
         onSelectPage={(id) => navigate(`/p/${id}`)}
         onAddPage={addPage}
+        onReorderPages={reorderPages}
         editing={effectiveEditing}
         onToggleEdit={() => setEditing((e) => !e)}
         canEdit={canEdit}

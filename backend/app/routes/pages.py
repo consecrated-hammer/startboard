@@ -12,6 +12,7 @@ from app.deps import get_current_user, require_user
 from app.models.schemas import (
     PageCreate,
     PageAnalyticsClick,
+    PagePositionsRequest,
     PageUpdate,
     PrivatePageInviteCreate,
     PermissionsUpdate,
@@ -106,6 +107,25 @@ def list_archived_pages(user: dict = Depends(require_user)):
             (user["id"], user["id"], user["role"]),
         ).fetchall()
         return [page_to_dict(p, user, can_edit(conn, user, p)) for p in rows]
+
+
+@router.put("/positions")
+def reorder_pages(payload: PagePositionsRequest, user: dict = Depends(require_user)):
+    """Persist tab-bar order: set each page's position to its index in `ids`."""
+    with get_db_connection() as conn:
+        ts = now_iso()
+        for index, page_id in enumerate(payload.ids):
+            page = get_page(conn, page_id)
+            if page is None:
+                raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
+            if not can_edit(conn, user, page):
+                raise HTTPException(status_code=403, detail="Not allowed to reorder this page")
+            conn.execute(
+                "UPDATE pages SET position=?, updated_at=? WHERE id=?",
+                (index, ts, page_id),
+            )
+        conn.commit()
+        return {"ok": True}
 
 
 @router.post("", status_code=201)

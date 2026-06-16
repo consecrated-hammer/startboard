@@ -517,7 +517,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
         group_id: groupId ? Number(groupId) : undefined,
         url: url.trim(),
         title: title.trim() || null,
-        title_color: titleColor.trim() || null,
+        title_color: titleColor.trim(),
         description: description.trim() || null,
         icon_url: editing && !iconSourceDirty ? (bookmark?.icon_url ?? null) : (resolvedIconUrl || null),
         docker_ref: dockerRef.trim() || null,
