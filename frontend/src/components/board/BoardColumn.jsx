@@ -4,7 +4,7 @@ import GroupColumn from './GroupColumn.jsx'
 
 // One visual column of stacked group widgets. Droppable so groups can be dropped
 // into an empty column or below the last group. `cardGap` is a pixel value.
-export default function BoardColumn({ index, groups, editing, canManage = false, groupDndEnabled = editing, manualDragEnabled = false, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, cardGap = 12, bookmarkGap = 2, handlers, activeManualDragGroupId = null, onManualDragStart }) {
+export default function BoardColumn({ index, groups, editing, canManage = false, groupDndEnabled = editing, manualDragEnabled = false, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, cardGap = 12, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', handlers, activeManualDragGroupId = null, onManualDragStart }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `col:${index}`,
     data: { type: 'column', index },
@@ -34,6 +34,8 @@ export default function BoardColumn({ index, groups, editing, canManage = false,
             openNewTab={openNewTab}
             showWebsiteIcons={showWebsiteIcons}
             bookmarkGap={bookmarkGap}
+            pageTitleColor={pageTitleColor}
+            pageIconColor={pageIconColor}
             onOpenBookmark={handlers.onOpenBookmark}
             onEditBookmark={(b) => handlers.onEditBookmark(g, b)}
             onAddBookmark={handlers.onAddBookmark}
