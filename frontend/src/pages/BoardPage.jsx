@@ -131,15 +131,17 @@ function estimateManualCanvasHeight(groups) {
 }
 
 export default function BoardPage() {
-  const { preferences } = useAppState()
+  const { preferences, settings } = useAppState()
   const { pageId } = useParams()
   const navigate = useNavigate()
   const { offlineAuth } = useAuth()
-  const responsiveCols = useColumnCount()
   const [board, setBoard] = useState(null)
   // max_cols 0 (or null) = "Max": fill the screen using the responsive count.
   const maxCols = board?.page?.max_cols ?? 0
   const currentPageId = board?.page?.id ?? null
+  // When a Card max width is set, the responsive count fits to it; otherwise
+  // columns stretch (1fr) and we fall back to the hook's default min width.
+  const responsiveCols = useColumnCount(board?.page?.card_max_width ?? 0, board?.page?.card_gap_x ?? 16)
   const colCount = maxCols > 0 ? Math.min(responsiveCols, maxCols) : responsiveCols
   const colCountRef = useRef(colCount)
   useEffect(() => { colCountRef.current = colCount }, [colCount])
@@ -190,6 +192,22 @@ export default function BoardPage() {
     offlineStore.writePageList(list)
     return list
   }, [])
+
+  // Persist tab-bar order. Optimistically reorder local state, then save; on
+  // failure reload from the server to resync.
+  const reorderPages = useCallback(async (orderedIds) => {
+    setPages((current) => {
+      const byId = new Map(current.map((p) => [p.id, p]))
+      const next = orderedIds.map((id) => byId.get(id)).filter(Boolean)
+      offlineStore.writePageList(next)
+      return next
+    })
+    try {
+      await pagesAPI.setPositions(orderedIds)
+    } catch {
+      await loadPages()
+    }
+  }, [loadPages])
 
   const applyBoardData = useCallback((data, offline = false) => {
     const nextBoard = offline
@@ -730,6 +748,7 @@ export default function BoardPage() {
         currentPage={board?.page}
         onSelectPage={(id) => navigate(`/p/${id}`)}
         onAddPage={addPage}
+        onReorderPages={reorderPages}
         editing={effectiveEditing}
         onToggleEdit={() => setEditing((e) => !e)}
         canEdit={canEdit}
@@ -816,6 +835,8 @@ export default function BoardPage() {
                       showWebsiteIcons={preferences.show_website_icons}
                       cardGap={board.page.card_gap}
                       bookmarkGap={board.page.bookmark_gap}
+                      pageTitleColor={board.page.bookmark_title_color}
+                      pageIconColor={board.page.icon_color || settings.icon_color || ''}
                       handlers={handlers}
                     />
                   </div>
@@ -844,6 +865,8 @@ export default function BoardPage() {
                     showWebsiteIcons={preferences.show_website_icons}
                     cardGap={board.page.card_gap}
                     bookmarkGap={board.page.bookmark_gap}
+                    pageTitleColor={board.page.bookmark_title_color}
+                    pageIconColor={board.page.icon_color || settings.icon_color || ''}
                     handlers={handlers}
                   />
                 ))}
@@ -866,6 +889,8 @@ export default function BoardPage() {
         <BookmarkModal
           bookmark={bookmarkModal.bookmark}
           groups={groups}
+          pages={pages}
+          currentPageId={currentPageId}
           currentGroupId={bookmarkModal.group?.id ?? bookmarkModal.bookmark?.group_id ?? null}
           onSave={saveBookmark}
           onDelete={deleteBookmark}
