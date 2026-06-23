@@ -30,6 +30,8 @@ CONTENT_TYPE_TO_EXT = {
     "image/gif": ".gif",
 }
 
+LOCAL_ICON_FILENAME_RE = re.compile(r"^[0-9a-f]{24}\.(svg|png|ico|webp|jpg|gif)$")
+
 
 def icon_dir() -> Path:
     path = Path(settings.favicon_dir)
@@ -51,10 +53,10 @@ def public_icon_path(filename: str) -> str:
 
 
 def local_icon_file(filename: str) -> Path:
-    path = icon_dir() / Path(filename).name
-    if path.parent != icon_dir():
+    normalized = (filename or "").strip().lower()
+    if not LOCAL_ICON_FILENAME_RE.fullmatch(normalized):
         raise ValueError("Invalid icon filename")
-    return path
+    return icon_dir() / normalized
 
 
 def _guess_extension(content_type: str | None, source_url: str) -> str:
