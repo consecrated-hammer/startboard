@@ -6,6 +6,8 @@ const THEME_ICON_COLORS = {
   light: '#1e293b',
 }
 
+const LOCAL_ICON_PREFIX = '/api/icons/'
+
 function parseIconifyUrl(url) {
   if (!url) return null
   try {
@@ -34,20 +36,45 @@ function buildIconifyUrl({ baseUrl, prefix, name, color }) {
   return url.toString()
 }
 
+function parseLocalSvgUrl(url) {
+  if (!url) return null
+  try {
+    const parsed = new URL(url, window.location.origin)
+    if (parsed.origin !== window.location.origin || !parsed.pathname.startsWith(LOCAL_ICON_PREFIX) || !parsed.pathname.endsWith('.svg')) {
+      return null
+    }
+    return { filename: decodeURIComponent(parsed.pathname.slice(LOCAL_ICON_PREFIX.length)) }
+  } catch {
+    return null
+  }
+}
+
+function buildLocalSvgRenderUrl({ filename, color }) {
+  const url = new URL(`${window.location.origin}/api/icons/render/${encodeURIComponent(filename)}`)
+  if (color) url.searchParams.set('color', color)
+  return url.toString()
+}
+
 // Renders a bookmark favicon; on load error falls back to a letter tile.
 // `treatment` overrides the site-wide icon_treatment (used by the settings preview).
-export default function Favicon({ iconUrl, title, size = 18, show = true, treatment }) {
+export default function Favicon({ iconUrl, title, size = 18, show = true, treatment, color = '' }) {
   const { settings, resolvedTheme } = useAppState()
   const [failedUrl, setFailedUrl] = useState(null)
   const iconTreatment = treatment || settings.icon_treatment || 'default'
   const parsedIconify = parseIconifyUrl(iconUrl)
-  const shouldTreatAsIcon = parsedIconify && iconTreatment !== 'default'
-  const effectiveUrl = shouldTreatAsIcon
+  const parsedLocalSvg = parseLocalSvgUrl(iconUrl)
+  const requestedColor = color.trim() || (settings.icon_color || '').trim()
+  const treatmentColor = THEME_ICON_COLORS[resolvedTheme] || THEME_ICON_COLORS.dark
+  const effectiveColor = requestedColor || (iconTreatment !== 'default' ? treatmentColor : '')
+  const shouldTreatAsIcon = (parsedIconify || parsedLocalSvg) && (iconTreatment !== 'default' || !!requestedColor)
+  const effectiveUrl = parsedIconify && effectiveColor
     ? buildIconifyUrl({
       ...parsedIconify,
-      color: THEME_ICON_COLORS[resolvedTheme] || THEME_ICON_COLORS.dark,
+      color: effectiveColor,
     })
-    : iconUrl
+    : parsedLocalSvg && effectiveColor
+      ? buildLocalSvgRenderUrl({ filename: parsedLocalSvg.filename, color: effectiveColor })
+      : iconUrl
   const failed = failedUrl === effectiveUrl
   const letter = (title || '?').trim().charAt(0).toUpperCase()
   const tilePadding = iconTreatment === 'tile' ? Math.max(1, Math.round(size * 0.14)) : 0

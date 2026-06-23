@@ -6,6 +6,7 @@ Icons chosen from third-party providers are fetched once, saved under
 
 import hashlib
 import mimetypes
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -47,6 +48,13 @@ def is_local_icon_path(value: str | None) -> bool:
 
 def public_icon_path(filename: str) -> str:
     return f"{LOCAL_ICON_PREFIX}{filename}"
+
+
+def local_icon_file(filename: str) -> Path:
+    path = icon_dir() / Path(filename).name
+    if path.parent != icon_dir():
+        raise ValueError("Invalid icon filename")
+    return path
 
 
 def _guess_extension(content_type: str | None, source_url: str) -> str:
@@ -144,3 +152,29 @@ def ingest_remote_icon(source_url: str | None) -> str | None:
         return _store_icon_bytes(data, ext)
     except Exception:
         return source_url
+
+
+def recolor_svg_bytes(data: bytes, color: str) -> bytes:
+    svg = data.decode("utf-8")
+    cleaned_color = color.strip()
+    if not cleaned_color:
+        return data
+
+    svg = re.sub(r'fill="(?!none\b|currentColor\b|url\()[^"]*"', 'fill="currentColor"', svg, flags=re.IGNORECASE)
+    svg = re.sub(r"fill='(?!none\b|currentColor\b|url\()[^']*'", "fill='currentColor'", svg, flags=re.IGNORECASE)
+    svg = re.sub(r'stroke="(?!none\b|currentColor\b|url\()[^"]*"', 'stroke="currentColor"', svg, flags=re.IGNORECASE)
+    svg = re.sub(r"stroke='(?!none\b|currentColor\b|url\()[^']*'", "stroke='currentColor'", svg, flags=re.IGNORECASE)
+    svg = re.sub(r"fill\s*:\s*(?!none\b|currentColor\b|url\()[^;\"']+", "fill:currentColor", svg, flags=re.IGNORECASE)
+    svg = re.sub(r"stroke\s*:\s*(?!none\b|currentColor\b|url\()[^;\"']+", "stroke:currentColor", svg, flags=re.IGNORECASE)
+    style_block = (
+        f'<style>'
+        f'svg{{color:{cleaned_color};}}'
+        f'[fill]:not([fill=\"none\"]):not([fill=\"currentColor\"]){{fill:currentColor!important;}}'
+        f'[stroke]:not([stroke=\"none\"]):not([stroke=\"currentColor\"]){{stroke:currentColor!important;}}'
+        f'path:not([fill]),circle:not([fill]),rect:not([fill]),polygon:not([fill]),ellipse:not([fill]){{fill:currentColor!important;}}'
+        f'</style>'
+    )
+    if "<svg" not in svg:
+        return data
+    svg = re.sub(r"(<svg\b[^>]*>)", rf"\1{style_block}", svg, count=1, flags=re.IGNORECASE)
+    return svg.encode("utf-8")
