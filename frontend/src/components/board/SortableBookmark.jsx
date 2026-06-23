@@ -132,7 +132,7 @@ function BookmarkMenu({ items }) {
   )
 }
 
-export default function SortableBookmark({ bookmark, editing, canManage = false, dndEnabled = editing, openNewTab = true, showWebsiteIcons = true, displayMode = 'list', iconSize = 'small', bookmarkAlign = 'auto', titleColor = '', onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onMoveTop, onMoveBottom, onDelete }) {
+export default function SortableBookmark({ bookmark, editing, canManage = false, dndEnabled = editing, openNewTab = true, showWebsiteIcons = true, displayMode = 'list', iconSize = 'small', bookmarkAlign = 'auto', titleColor = '', iconColor = '', onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onMoveTop, onMoveBottom, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `b:${bookmark.id}`,
     data: { type: 'bookmark', bookmark },
@@ -176,10 +176,10 @@ export default function SortableBookmark({ bookmark, editing, canManage = false,
       className="flex shrink-0 items-center justify-center"
       style={{ width: iconStageSize, height: iconStageSize }}
     >
-      <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} treatment="tile" />
+      <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} treatment="tile" color={bookmark.icon_color || iconColor} />
     </span>
   ) : (
-    <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} />
+    <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} color={bookmark.icon_color || iconColor} />
   )
 
   const inner = (
