@@ -86,6 +86,8 @@ class PageUpdate(BaseModel):
     bg_color: Optional[str] = Field(default=None, max_length=32)
     bg_image: Optional[str] = Field(default=None, max_length=2048)
     accent: Optional[str] = Field(default=None, max_length=32)
+    bookmark_title_color: Optional[str] = Field(default=None, max_length=32)
+    icon_color: Optional[str] = Field(default=None, max_length=32)
 
 
 class PageOut(BaseModel):
@@ -107,6 +109,8 @@ class GroupCreate(BaseModel):
     bg_color: Optional[str] = Field(default=None, max_length=32)
     header_bg_color: Optional[str] = Field(default=None, max_length=32)
     header_text_color: Optional[str] = Field(default=None, max_length=32)
+    bookmark_title_color: Optional[str] = Field(default=None, max_length=32)
+    icon_color: Optional[str] = Field(default=None, max_length=32)
     transparency: Optional[int] = Field(default=0, ge=0, le=100)
     display_mode: Optional[GroupDisplayMode] = None
     icon_size: Optional[GroupIconSize] = None
@@ -120,6 +124,8 @@ class GroupUpdate(BaseModel):
     bg_color: Optional[str] = Field(default=None, max_length=32)
     header_bg_color: Optional[str] = Field(default=None, max_length=32)
     header_text_color: Optional[str] = Field(default=None, max_length=32)
+    bookmark_title_color: Optional[str] = Field(default=None, max_length=32)
+    icon_color: Optional[str] = Field(default=None, max_length=32)
     transparency: Optional[int] = Field(default=None, ge=0, le=100)
     display_mode: Optional[GroupDisplayMode] = None
     icon_size: Optional[GroupIconSize] = None
@@ -139,7 +145,9 @@ class BookmarkCreate(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     description: Optional[str] = Field(default=None, max_length=500)
     icon_url: Optional[str] = None
+    icon_color: Optional[str] = Field(default=None, max_length=32)
     docker_ref: Optional[str] = Field(default=None, max_length=200)
+    title_color: Optional[str] = Field(default=None, max_length=32)
 
 
 class BookmarkUpdate(BaseModel):
@@ -147,7 +155,9 @@ class BookmarkUpdate(BaseModel):
     url: Optional[str] = Field(default=None, min_length=1, max_length=2048)
     description: Optional[str] = Field(default=None, max_length=500)
     icon_url: Optional[str] = None
+    icon_color: Optional[str] = Field(default=None, max_length=32)
     docker_ref: Optional[str] = Field(default=None, max_length=200)
+    title_color: Optional[str] = Field(default=None, max_length=32)
     group_id: Optional[int] = None
     position: Optional[int] = None
 
@@ -169,6 +179,11 @@ class ReorderGroup(BaseModel):
 
 class ReorderRequest(BaseModel):
     groups: list[ReorderGroup]
+
+
+class PagePositionsRequest(BaseModel):
+    """Tab-bar order: page ids in their desired left-to-right order."""
+    ids: list[int]
 
 
 # ---- Admin: users & grants ----
@@ -250,6 +265,7 @@ class AppSettingsUpdate(BaseModel):
     site_name: Optional[str] = Field(default=None, min_length=1, max_length=60)
     allow_sharing: Optional[bool] = None
     icon_treatment: Optional[Literal["default", "monochrome", "tile"]] = None
+    icon_color: Optional[str] = Field(default=None, max_length=32)
     docker_integration_enabled: Optional[bool] = None
     docker_api_endpoint: Optional[str] = Field(default=None, max_length=512)
     docker_status_poll_seconds: Optional[int] = Field(default=None, ge=5, le=3600)

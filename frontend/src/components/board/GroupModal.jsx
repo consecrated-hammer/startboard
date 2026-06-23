@@ -205,7 +205,7 @@ function IconResults({ title = 'Results', subtitle = '', busy, error, empty, chi
   )
 }
 
-function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor, transparency, displayMode, iconSize, bookmarkAlign, visibleLimit, bookmarks = [] }) {
+function GroupPreview({ title, iconUrl, iconColor, bgColor, headerBgColor, headerTextColor, bookmarkTitleColor, transparency, displayMode, iconSize, bookmarkAlign, visibleLimit, bookmarks = [] }) {
   const sourceBookmarks = bookmarks.length ? bookmarks : PREVIEW_BOOKMARKS
   const previewBookmarks = visibleLimit > 0 ? sourceBookmarks.slice(0, visibleLimit) : sourceBookmarks
   const resolvedIconSize = PREVIEW_ICON_SIZE_MAP[iconSize] || PREVIEW_ICON_SIZE_MAP.small
@@ -229,7 +229,7 @@ function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor,
             color: headerTextColor || undefined,
           }}
         >
-          <Favicon iconUrl={iconUrl} title={title} size={18} />
+          <Favicon iconUrl={iconUrl} title={title} size={18} color={iconColor} />
           <h3 className={`flex-1 truncate text-sm font-semibold uppercase tracking-wide ${headerTextColor ? '' : 'text-slate-300'}`}>
             {title.trim() || 'Untitled group'}
           </h3>
@@ -252,8 +252,8 @@ function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor,
                   className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-slate-200"
                   style={{ fontSize: `${0.76 + (index * 0.08)}rem` }}
                 >
-                  <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={Math.max(16, resolvedIconSize - 2)} />
-                  <span className="truncate">{bookmark.title}</span>
+                  <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={Math.max(16, resolvedIconSize - 2)} color={bookmark.icon_color || iconColor} />
+                  <span className="truncate" style={{ color: bookmarkTitleColor || undefined }}>{bookmark.title}</span>
                 </span>
               ))}
             </div>
@@ -270,7 +270,7 @@ function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor,
               {previewBookmarks.map((bookmark) => (
                 <div key={bookmark.id} className={`sb-link flex w-auto min-w-0 rounded-md px-1.5 py-1 text-sm text-slate-200 ${alignMode === 'center' ? 'justify-self-center text-center' : 'justify-self-start text-left'}`}>
                   <span className="flex items-center justify-center" style={{ width: iconStageSize, height: iconStageSize }}>
-                    <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} treatment="tile" />
+                    <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} treatment="tile" color={bookmark.icon_color || iconColor} />
                   </span>
                 </div>
               ))}
@@ -278,9 +278,9 @@ function GroupPreview({ title, iconUrl, bgColor, headerBgColor, headerTextColor,
           ) : (
             previewBookmarks.map((bookmark) => (
               <div key={bookmark.id} className={`sb-link flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-200 ${itemJustifyClass} ${itemTextClass}`}>
-                <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} />
+                <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} color={bookmark.icon_color || iconColor} />
                 <span className={`min-w-0 flex-1 ${displayMode === 'detailed' ? '' : 'truncate'}`}>
-                  <span className="block truncate">{bookmark.title}</span>
+                  <span className="block truncate" style={{ color: bookmarkTitleColor || undefined }}>{bookmark.title}</span>
                   {displayMode === 'detailed' && bookmark.description && (
                     <span className="mt-0.5 block truncate text-xs text-slate-400">{bookmark.description}</span>
                   )}
@@ -305,6 +305,8 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
   const [bgColor, setBgColor] = useState(group?.bg_color || '')
   const [headerBgColor, setHeaderBgColor] = useState(group?.header_bg_color || '')
   const [headerTextColor, setHeaderTextColor] = useState(group?.header_text_color || '')
+  const [bookmarkTitleColor, setBookmarkTitleColor] = useState(group?.bookmark_title_color || '')
+  const [iconColor, setIconColor] = useState(group?.icon_color || '')
   const [transparency, setTransparency] = useState(group?.transparency ?? 0)
   const [displayMode, setDisplayMode] = useState(group?.display_mode || 'list')
   const [iconSize, setIconSize] = useState(group?.icon_size || 'small')
@@ -519,6 +521,8 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
         bg_color: bgColor.trim(),
         header_bg_color: headerBgColor.trim(),
         header_text_color: headerTextColor.trim(),
+        bookmark_title_color: bookmarkTitleColor.trim(),
+        icon_color: iconColor.trim(),
         transparency,
         display_mode: displayMode,
         icon_size: iconSize,
@@ -577,6 +581,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
           <GroupPreview
             title={title}
             iconUrl={resolvedIconUrl || currentIconUrl}
+            iconColor={iconColor}
             bgColor={bgColor}
             transparency={transparency}
             displayMode={displayMode}
@@ -585,6 +590,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
             bookmarks={group?.bookmarks || []}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
+            bookmarkTitleColor={bookmarkTitleColor}
             bookmarkAlign={bookmarkAlign}
           />
         </div>
@@ -605,8 +611,8 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
               ))}
             </div>
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-slate-900/30 px-3 py-2">
-              {editing && currentIconUrl && <div className="flex items-center gap-2"><Favicon iconUrl={currentIconUrl} title={group?.title} size={18} /><span className="text-xs text-slate-500">Current</span></div>}
-              <div className="flex items-center gap-2"><Favicon iconUrl={resolvedIconUrl} title={title} size={18} /><span className="text-xs text-slate-400">Preview</span></div>
+              {editing && currentIconUrl && <div className="flex items-center gap-2"><Favicon iconUrl={currentIconUrl} title={group?.title} size={18} color={iconColor} /><span className="text-xs text-slate-500">Current</span></div>}
+              <div className="flex items-center gap-2"><Favicon iconUrl={resolvedIconUrl} title={title} size={18} color={iconColor} /><span className="text-xs text-slate-400">Preview</span></div>
             </div>
             {iconSource === 'auto' && <div className="rounded-lg border border-dashed border-white/10 px-3 py-2.5 text-xs text-slate-400">Startboard will show the letter tile for this group.</div>}
             {iconSource === 'direct' && <div><input className={input} value={directIconUrl} onChange={(e) => setDirectIconUrl(e.target.value)} placeholder="/icons/folder.svg or https://cdn.example.com/folder.svg" /><p className="mt-1.5 text-xs text-slate-400">Self-hosted SVG/PNG asset or any explicit image URL.</p></div>}
@@ -692,6 +698,11 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
             <div className="space-y-3">
               <div>
+                <label className={label}>Default icon colour</label>
+                <ColorField value={iconColor} onChange={setIconColor} />
+                <p className="mt-1 text-xs text-slate-500">Applies to this group icon and its bookmarks unless a bookmark sets its own icon colour.</p>
+              </div>
+              <div>
                 <label className={label}>Background colour</label>
                 <ColorField value={bgColor} onChange={setBgColor} />
               </div>
@@ -702,6 +713,11 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
               <div>
                 <label className={label}>Header text colour</label>
                 <ColorField value={headerTextColor} onChange={setHeaderTextColor} />
+              </div>
+              <div>
+                <label className={label}>Bookmark title colour</label>
+                <ColorField value={bookmarkTitleColor} onChange={setBookmarkTitleColor} />
+                <p className="mt-1 text-xs text-slate-500">Default for bookmarks in this group. Overrides the page default; a bookmark’s own colour wins.</p>
               </div>
               <div>
                 <label className={label}>Widget transparency</label>
@@ -760,6 +776,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
             <GroupPreview
               title={title}
               iconUrl={resolvedIconUrl || currentIconUrl}
+              iconColor={iconColor}
               bgColor={bgColor}
               transparency={transparency}
               displayMode={displayMode}
@@ -768,6 +785,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
               bookmarks={group?.bookmarks || []}
               headerBgColor={headerBgColor}
               headerTextColor={headerTextColor}
+              bookmarkTitleColor={bookmarkTitleColor}
               bookmarkAlign={bookmarkAlign}
             />
           </div>
