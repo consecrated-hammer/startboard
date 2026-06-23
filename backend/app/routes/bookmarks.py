@@ -1,6 +1,7 @@
 """Bookmark routes."""
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.db.database import get_db_connection
 from app.deps import require_user
@@ -9,7 +10,7 @@ from app.routes._helpers import bookmark_to_dict, now_iso
 from app.services.bookmark_links import is_launchable_url
 from app.services.bookmark_ops import create_bookmark_in_group
 from app.services.favicon import resolve_icon
-from app.services.icon_store import ingest_remote_icon, ingest_uploaded_icon
+from app.services.icon_store import ingest_remote_icon, ingest_uploaded_icon, local_icon_file, recolor_svg_bytes
 from app.utils.permissions import can_edit, get_page
 
 router = APIRouter(tags=["bookmarks"])
@@ -43,6 +44,22 @@ async def upload_icon(
     return {"icon_url": icon_url}
 
 
+@router.get("/icons/render/{filename}")
+def render_local_svg_icon(filename: str, color: str):
+    try:
+        path = local_icon_file(filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Icon not found")
+    data = recolor_svg_bytes(path.read_bytes(), color)
+    return Response(
+        content=data,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 @router.post("/groups/{group_id}/bookmarks", status_code=201)
 def create_bookmark(
     group_id: int, payload: BookmarkCreate, user: dict = Depends(require_user)
@@ -59,7 +76,9 @@ def create_bookmark(
             title=payload.title,
             description=payload.description,
             icon_url=payload.icon_url,
+            icon_color=payload.icon_color,
             docker_ref=payload.docker_ref,
+            title_color=payload.title_color,
         )
         conn.commit()
         return bookmark_to_dict(b)
@@ -78,17 +97,30 @@ def update_bookmark(
         title = payload.title.strip() if payload.title is not None else b["title"]
         description = payload.description if payload.description is not None else b["description"]
         docker_ref = payload.docker_ref.strip() if payload.docker_ref is not None else b["docker_ref"]
+        title_color = (payload.title_color or None) if payload.title_color is not None else b["title_color"]
+        icon_color = (payload.icon_color or None) if payload.icon_color is not None else b["icon_color"]
         position = payload.position if payload.position is not None else b["position"]
 
-        # If a target group is given, ensure it belongs to the same page.
+        # If a target group is given, allow moving within or across pages the
+        # caller can edit. Cross-page moves append to the end of the new group.
         group_id = b["group_id"]
         if payload.group_id is not None and payload.group_id != group_id:
             target = conn.execute(
                 "SELECT page_id FROM groups WHERE id = ?", (payload.group_id,)
             ).fetchone()
-            if target is None or target["page_id"] != page["id"]:
-                raise HTTPException(status_code=400, detail="Target group not on this page")
+            if target is None:
+                raise HTTPException(status_code=400, detail="Target group not found")
+            if target["page_id"] != page["id"]:
+                target_page = get_page(conn, target["page_id"])
+                if not can_edit(conn, user, target_page):
+                    raise HTTPException(status_code=403, detail="Not allowed to edit the target page")
             group_id = payload.group_id
+            if payload.position is None:
+                max_pos = conn.execute(
+                    "SELECT COALESCE(MAX(position), -1) AS m FROM bookmarks WHERE group_id = ?",
+                    (group_id,),
+                ).fetchone()["m"]
+                position = max_pos + 1
 
         # Re-resolve icon when an explicit icon is given, or url changed and none set.
         if payload.icon_url is not None:
@@ -101,10 +133,14 @@ def update_bookmark(
 
         conn.execute(
             """
-            UPDATE bookmarks SET group_id=?, title=?, url=?, icon_url=?, description=?, docker_ref=?, position=?, updated_at=?
+            UPDATE bookmarks SET group_id=?, title=?, url=?, icon_url=?, description=?, docker_ref=?, title_color=?, position=?, updated_at=?
             WHERE id=?
             """,
-            (group_id, title, url, icon, description, docker_ref or None, position, now_iso(), bookmark_id),
+            (group_id, title, url, icon, description, docker_ref or None, title_color, position, now_iso(), bookmark_id),
+        )
+        conn.execute(
+            "UPDATE bookmarks SET icon_color=? WHERE id=?",
+            (icon_color, bookmark_id),
         )
         conn.commit()
         out = conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
@@ -126,12 +162,12 @@ def duplicate_bookmark(bookmark_id: int, user: dict = Depends(require_user)):
             """
             INSERT INTO bookmarks (
                 group_id, title, url, icon_url, description, source_type, source_ref,
-                docker_ref, position, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                docker_ref, title_color, icon_color, position, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 b["group_id"], f'{b["title"]} Copy', b["url"], b["icon_url"], b["description"],
-                None, None, b["docker_ref"], max_pos + 1, ts, ts,
+                None, None, b["docker_ref"], b["title_color"], b["icon_color"] if "icon_color" in b.keys() else None, max_pos + 1, ts, ts,
             ),
         )
         conn.commit()
