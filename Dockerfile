@@ -18,7 +18,7 @@ ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build
 
 # ---- Stage 2: FastAPI backend serving the built SPA ----
-FROM python:3.12-slim
+FROM python:3.14-slim
 WORKDIR /app
 
 COPY backend/requirements.txt .
