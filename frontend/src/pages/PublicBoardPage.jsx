@@ -303,7 +303,6 @@ function DockerStatusBadge({ status }) {
 export default function PublicBoardPage() {
   const { shareId } = useParams()
   const { settings, preferences } = useAppState()
-  const responsiveCols = useColumnCount()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -393,6 +392,9 @@ export default function PublicBoardPage() {
     }).filter((group) => group.bookmarks.length > 0)
   }, [data, searchQuery])
 
+  // When a Card max width is set, fit the responsive count to it; otherwise
+  // columns stretch (1fr) and the hook falls back to its default min width.
+  const responsiveCols = useColumnCount(mergedPage?.card_max_width ?? 0, mergedPage?.card_gap_x ?? 16)
   const maxCols = mergedPage?.max_cols ?? 0
   const colCount = Math.max(1, maxCols > 0 ? Math.min(responsiveCols, maxCols) : responsiveCols)
   const columns = useMemo(() => (
@@ -509,7 +511,7 @@ export default function PublicBoardPage() {
                   className="flex flex-col rounded-2xl border border-white/10 bg-white/3"
                 >
                   <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-                    <Favicon iconUrl={g.icon_url} title={g.title} size={18} show={preferences.show_website_icons} />
+                    <Favicon iconUrl={g.icon_url} title={g.title} size={18} show={preferences.show_website_icons} color={g.icon_color || mergedPage?.icon_color || settings.icon_color || ''} />
                     <h3 className="truncate text-sm font-semibold uppercase tracking-wide text-slate-300">{g.title}</h3>
                   </div>
                   <div className="p-2" style={{ display: 'grid', gap: `${mergedPage?.bookmark_gap ?? 2}px` }}>
@@ -525,8 +527,11 @@ export default function PublicBoardPage() {
                           openBookmark(b, mergedPage?.open_new_tab)
                         }}
                       >
-                        <Favicon iconUrl={b.icon_url} title={b.title} show={preferences.show_website_icons} />
-                        <span className="min-w-0 flex-1 truncate">{b.title}</span>
+                        <Favicon iconUrl={b.icon_url} title={b.title} show={preferences.show_website_icons} color={b.icon_color || g.icon_color || mergedPage?.icon_color || settings.icon_color || ''} />
+                        <span
+                          className="min-w-0 flex-1 truncate"
+                          style={{ color: b.title_color || g.bookmark_title_color || mergedPage?.bookmark_title_color || undefined }}
+                        >{b.title}</span>
                         <DockerStatusBadge status={b.docker_status} />
                         {!mergedPage?.open_new_tab && isBookmarkLaunchable(b) && <ExternalLink className="h-3.5 w-3.5 text-slate-500" />}
                       </button>
