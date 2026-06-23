@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = {
   site_name: 'Startboard',
   allow_sharing: true,
   icon_treatment: 'default',
+  icon_color: '',
 }
 
 const DEFAULT_PREFERENCES = {
@@ -50,11 +51,13 @@ export function AppStateProvider({ children }) {
       site_name: next.site_name || DEFAULT_SETTINGS.site_name,
       allow_sharing: Boolean(next.allow_sharing),
       icon_treatment: next.icon_treatment || DEFAULT_SETTINGS.icon_treatment,
+      icon_color: next.icon_color || DEFAULT_SETTINGS.icon_color,
     })
     offlineStore.writeSettings({
       site_name: next.site_name || DEFAULT_SETTINGS.site_name,
       allow_sharing: Boolean(next.allow_sharing),
       icon_treatment: next.icon_treatment || DEFAULT_SETTINGS.icon_treatment,
+      icon_color: next.icon_color || DEFAULT_SETTINGS.icon_color,
     })
     setSettingsLoaded(true)
     return next
@@ -86,11 +89,13 @@ export function AppStateProvider({ children }) {
         site_name: next.site_name || DEFAULT_SETTINGS.site_name,
         allow_sharing: Boolean(next.allow_sharing),
         icon_treatment: next.icon_treatment || DEFAULT_SETTINGS.icon_treatment,
+        icon_color: next.icon_color || DEFAULT_SETTINGS.icon_color,
       })
       offlineStore.writeSettings({
         site_name: next.site_name || DEFAULT_SETTINGS.site_name,
         allow_sharing: Boolean(next.allow_sharing),
         icon_treatment: next.icon_treatment || DEFAULT_SETTINGS.icon_treatment,
+        icon_color: next.icon_color || DEFAULT_SETTINGS.icon_color,
       })
       saveToast.saved()
       return next
