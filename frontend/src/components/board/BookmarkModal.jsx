@@ -5,7 +5,7 @@ import Spinner from '../Spinner.jsx'
 import Favicon from '../Favicon.jsx'
 import { btnDanger, btnPrimary, btnSecondary, input, label } from '../ui.js'
 import { ColorField } from '../settings/SettingsKit.jsx'
-import { bookmarksAPI, errorMessage } from '../../services/api.js'
+import { bookmarksAPI, errorMessage, pagesAPI } from '../../services/api.js'
 
 const DEFAULT_ICONIFY_API_BASE = (import.meta.env.VITE_ICONIFY_API_BASE_URL || 'https://api.iconify.design').replace(/\/+$/, '')
 const DEFAULT_SELFHST_INDEX_URL = import.meta.env.VITE_SELFHST_INDEX_URL || 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/index-consolidated.json'
@@ -242,18 +242,59 @@ function IconResults({ title = 'Results', subtitle = '', busy, error, empty, chi
 }
 
 // Add or edit a bookmark. `bookmark` null => create mode.
-export default function BookmarkModal({ bookmark, groups = [], currentGroupId = null, onSave, onDelete, onClose }) {
+export default function BookmarkModal({ bookmark, groups = [], pages = [], currentPageId = null, currentGroupId = null, onSave, onDelete, onClose }) {
   const editing = Boolean(bookmark)
   const parsedIconify = useMemo(() => parseIconifyUrl(bookmark?.icon_url || ''), [bookmark?.icon_url])
+  // Pages the bookmark can be moved to: the current page plus any editable page.
+  const movablePages = useMemo(
+    () => pages.filter((page) => page.id === currentPageId || page.can_edit),
+    [pages, currentPageId],
+  )
+  const [pageId, setPageId] = useState(currentPageId ? String(currentPageId) : '')
+  const onCurrentPage = !pageId || Number(pageId) === currentPageId
+  // Groups for a page other than the current one, fetched on demand. The current
+  // page reuses the groups already in memory.
+  const [fetchedGroups, setFetchedGroups] = useState([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
+  const [groupsError, setGroupsError] = useState('')
+  const pageGroups = onCurrentPage ? groups : fetchedGroups
   const sortedGroups = useMemo(
-    () => [...groups].sort((a, b) => (a.column - b.column) || (a.position - b.position) || a.title.localeCompare(b.title)),
-    [groups],
+    () => [...pageGroups].sort((a, b) => (a.column - b.column) || (a.position - b.position) || a.title.localeCompare(b.title)),
+    [pageGroups],
   )
   const [url, setUrl] = useState(bookmark?.url || '')
   const [title, setTitle] = useState(bookmark?.title || '')
+  const [titleColor, setTitleColor] = useState(bookmark?.title_color || '')
+  const [iconColor, setIconColor] = useState(bookmark?.icon_color || '')
   const [description, setDescription] = useState(bookmark?.description || '')
   const [dockerRef, setDockerRef] = useState(bookmark?.docker_ref || '')
   const [groupId, setGroupId] = useState(String(bookmark?.group_id || currentGroupId || ''))
+
+  // When the target page changes, load its groups and select the first one. The
+  // current page reuses the groups already in memory.
+  useEffect(() => {
+    if (onCurrentPage) return undefined
+    let cancelled = false
+    // Network-driven group load for the chosen page; updates happen in the chain.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGroupsLoading(true)
+    setGroupsError('')
+    pagesAPI.get(Number(pageId))
+      .then((data) => {
+        if (cancelled) return
+        const list = data.groups || []
+        setFetchedGroups(list)
+        setGroupId(list[0] ? String(list[0].id) : '')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setGroupsError(errorMessage(err, 'Could not load groups for that page'))
+        setFetchedGroups([])
+        setGroupId('')
+      })
+      .finally(() => { if (!cancelled) setGroupsLoading(false) })
+    return () => { cancelled = true }
+  }, [pageId, onCurrentPage])
   const [iconSource, setIconSource] = useState('auto')
   const [iconSourceDirty, setIconSourceDirty] = useState(false)
   const [libraryProvider, setLibraryProvider] = useState(inferLibraryProvider(bookmark?.icon_url || '', parsedIconify))
@@ -447,6 +488,11 @@ export default function BookmarkModal({ bookmark, groups = [], currentGroupId = 
       setError('A URL is required')
       return
     }
+    if (groupsLoading) return
+    if (editing && !groupId) {
+      setError('Choose a destination group')
+      return
+    }
     if (iconSource === 'upload' && !uploadedIconUrl.trim()) {
       setError('Upload an icon file before saving')
       return
@@ -472,6 +518,8 @@ export default function BookmarkModal({ bookmark, groups = [], currentGroupId = 
         group_id: groupId ? Number(groupId) : undefined,
         url: url.trim(),
         title: title.trim() || null,
+        title_color: titleColor.trim(),
+        icon_color: iconColor.trim(),
         description: description.trim() || null,
         icon_url: editing && !iconSourceDirty ? (bookmark?.icon_url ?? null) : (resolvedIconUrl || null),
         docker_ref: dockerRef.trim() || null,
@@ -596,15 +644,28 @@ export default function BookmarkModal({ bookmark, groups = [], currentGroupId = 
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(320px,0.82fr)_minmax(560px,1.28fr)] 2xl:items-start">
         <div className="space-y-3">
-          {sortedGroups.length > 1 && (
+          {editing && movablePages.length > 1 && (
+            <Labeled text="Page">
+              <select className={input} value={pageId} onChange={(e) => setPageId(e.target.value)}>
+                {movablePages.map((page) => (
+                  <option key={page.id} value={page.id}>
+                    {page.title}
+                  </option>
+                ))}
+              </select>
+            </Labeled>
+          )}
+          {(sortedGroups.length > 1 || groupsLoading || groupsError) && (
             <Labeled text="Group">
-              <select className={input} value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+              <select className={input} value={groupId} onChange={(e) => setGroupId(e.target.value)} disabled={groupsLoading || sortedGroups.length === 0}>
+                {groupsLoading && <option value="">Loading groups…</option>}
                 {sortedGroups.map((group) => (
                   <option key={group.id} value={group.id}>
                     {group.title}
                   </option>
                 ))}
               </select>
+              {groupsError && <p className="mt-1 text-xs text-red-400">{groupsError}</p>}
             </Labeled>
           )}
           <Labeled text="URL">
@@ -612,6 +673,14 @@ export default function BookmarkModal({ bookmark, groups = [], currentGroupId = 
           </Labeled>
           <Labeled text="Title">
             <input className={input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the site's domain" />
+          </Labeled>
+          <Labeled text="Title colour (optional)">
+            <ColorField value={titleColor} onChange={setTitleColor} />
+            <p className="mt-1 text-xs text-slate-500">Overrides the group and page defaults. Leave blank to inherit.</p>
+          </Labeled>
+          <Labeled text="Icon colour (optional)">
+            <ColorField value={iconColor} onChange={setIconColor} />
+            <p className="mt-1 text-xs text-slate-500">Overrides the group and page icon colour. Leave blank to inherit.</p>
           </Labeled>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <Labeled text="Description (optional)">
@@ -645,12 +714,12 @@ export default function BookmarkModal({ bookmark, groups = [], currentGroupId = 
           <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-slate-900/30 px-3 py-2">
             {editing && currentIconUrl && (
               <div className="flex items-center gap-2">
-                <Favicon iconUrl={currentIconUrl} title={bookmark?.title || bookmark?.url} size={18} />
+                <Favicon iconUrl={currentIconUrl} title={bookmark?.title || bookmark?.url} size={18} color={iconColor} />
                 <span className="text-xs text-slate-500">Current</span>
               </div>
             )}
             <div className="flex items-center gap-2">
-              <Favicon iconUrl={resolvedIconUrl} title={title || url} size={18} />
+              <Favicon iconUrl={resolvedIconUrl} title={title || url} size={18} color={iconColor} />
               <span className="text-xs text-slate-400">Preview</span>
             </div>
           </div>
