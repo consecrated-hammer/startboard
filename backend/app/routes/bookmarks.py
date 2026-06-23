@@ -167,7 +167,7 @@ def duplicate_bookmark(bookmark_id: int, user: dict = Depends(require_user)):
             INSERT INTO bookmarks (
                 group_id, title, url, icon_url, description, source_type, source_ref,
                 docker_ref, title_color, icon_color, position, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 b["group_id"], f'{b["title"]} Copy', b["url"], b["icon_url"], b["description"],
