@@ -126,6 +126,7 @@ export const pagesAPI = {
   unshare: (id) => client.delete(`/pages/${id}/share`).then((r) => r.data),
   duplicate: (id) => client.post(`/pages/${id}/duplicate`).then((r) => r.data),
   reorder: (id, groups) => client.put(`/pages/${id}/reorder`, { groups }).then((r) => r.data),
+  setPositions: (orderedIds) => client.put('/pages/positions', { ids: orderedIds }).then((r) => r.data),
   getPermissions: (id) => client.get(`/pages/${id}/permissions`).then((r) => r.data),
   setPermissions: (id, permissions) =>
     client.put(`/pages/${id}/permissions`, { permissions }).then((r) => r.data),
