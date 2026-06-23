@@ -9,6 +9,7 @@ APP_DEFAULTS = {
     "site_name": "Startboard",
     "allow_sharing": "true",
     "icon_treatment": "default",
+    "icon_color": "",
     "docker_integration_enabled": "false",
     "docker_api_endpoint": "unix:///var/run/docker.sock",
     "docker_status_poll_seconds": "30",

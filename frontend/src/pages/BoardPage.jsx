@@ -131,7 +131,7 @@ function estimateManualCanvasHeight(groups) {
 }
 
 export default function BoardPage() {
-  const { preferences } = useAppState()
+  const { preferences, settings } = useAppState()
   const { pageId } = useParams()
   const navigate = useNavigate()
   const { offlineAuth } = useAuth()
@@ -836,6 +836,7 @@ export default function BoardPage() {
                       cardGap={board.page.card_gap}
                       bookmarkGap={board.page.bookmark_gap}
                       pageTitleColor={board.page.bookmark_title_color}
+                      pageIconColor={board.page.icon_color || settings.icon_color || ''}
                       handlers={handlers}
                     />
                   </div>
@@ -865,6 +866,7 @@ export default function BoardPage() {
                     cardGap={board.page.card_gap}
                     bookmarkGap={board.page.bookmark_gap}
                     pageTitleColor={board.page.bookmark_title_color}
+                    pageIconColor={board.page.icon_color || settings.icon_color || ''}
                     handlers={handlers}
                   />
                 ))}
