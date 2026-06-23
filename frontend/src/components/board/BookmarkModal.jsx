@@ -265,6 +265,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
   const [url, setUrl] = useState(bookmark?.url || '')
   const [title, setTitle] = useState(bookmark?.title || '')
   const [titleColor, setTitleColor] = useState(bookmark?.title_color || '')
+  const [iconColor, setIconColor] = useState(bookmark?.icon_color || '')
   const [description, setDescription] = useState(bookmark?.description || '')
   const [dockerRef, setDockerRef] = useState(bookmark?.docker_ref || '')
   const [groupId, setGroupId] = useState(String(bookmark?.group_id || currentGroupId || ''))
@@ -518,6 +519,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
         url: url.trim(),
         title: title.trim() || null,
         title_color: titleColor.trim(),
+        icon_color: iconColor.trim(),
         description: description.trim() || null,
         icon_url: editing && !iconSourceDirty ? (bookmark?.icon_url ?? null) : (resolvedIconUrl || null),
         docker_ref: dockerRef.trim() || null,
@@ -676,6 +678,10 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
             <ColorField value={titleColor} onChange={setTitleColor} />
             <p className="mt-1 text-xs text-slate-500">Overrides the group and page defaults. Leave blank to inherit.</p>
           </Labeled>
+          <Labeled text="Icon colour (optional)">
+            <ColorField value={iconColor} onChange={setIconColor} />
+            <p className="mt-1 text-xs text-slate-500">Overrides the group and page icon colour. Leave blank to inherit.</p>
+          </Labeled>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <Labeled text="Description (optional)">
               <input className={input} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -708,12 +714,12 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
           <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-slate-900/30 px-3 py-2">
             {editing && currentIconUrl && (
               <div className="flex items-center gap-2">
-                <Favicon iconUrl={currentIconUrl} title={bookmark?.title || bookmark?.url} size={18} />
+                <Favicon iconUrl={currentIconUrl} title={bookmark?.title || bookmark?.url} size={18} color={iconColor} />
                 <span className="text-xs text-slate-500">Current</span>
               </div>
             )}
             <div className="flex items-center gap-2">
-              <Favicon iconUrl={resolvedIconUrl} title={title || url} size={18} />
+              <Favicon iconUrl={resolvedIconUrl} title={title || url} size={18} color={iconColor} />
               <span className="text-xs text-slate-400">Preview</span>
             </div>
           </div>

@@ -124,6 +124,7 @@ def init_db() -> None:
             bg_color TEXT,
             bg_image TEXT,
             accent TEXT,
+            icon_color TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -165,6 +166,7 @@ def init_db() -> None:
         "ALTER TABLE pages ADD COLUMN bg_image TEXT",
         "ALTER TABLE pages ADD COLUMN accent TEXT",
         "ALTER TABLE pages ADD COLUMN bookmark_title_color TEXT",
+        "ALTER TABLE pages ADD COLUMN icon_color TEXT",
     ):
         try:
             cur.execute(ddl)
@@ -210,6 +212,7 @@ def init_db() -> None:
             bg_color TEXT,
             header_bg_color TEXT,
             header_text_color TEXT,
+            icon_color TEXT,
             transparency INTEGER NOT NULL DEFAULT 0,
             display_mode TEXT NOT NULL DEFAULT 'list',
             icon_size TEXT NOT NULL DEFAULT 'small',
@@ -242,6 +245,7 @@ def init_db() -> None:
         "ALTER TABLE groups ADD COLUMN header_bg_color TEXT",
         "ALTER TABLE groups ADD COLUMN header_text_color TEXT",
         "ALTER TABLE groups ADD COLUMN bookmark_title_color TEXT",
+        "ALTER TABLE groups ADD COLUMN icon_color TEXT",
         "ALTER TABLE groups ADD COLUMN transparency INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE groups ADD COLUMN display_mode TEXT NOT NULL DEFAULT 'list'",
         "ALTER TABLE groups ADD COLUMN icon_size TEXT NOT NULL DEFAULT 'small'",
@@ -269,6 +273,7 @@ def init_db() -> None:
             title TEXT NOT NULL,
             url TEXT NOT NULL,
             icon_url TEXT,
+            icon_color TEXT,
             description TEXT,
             source_type TEXT,
             source_ref TEXT,
@@ -286,6 +291,7 @@ def init_db() -> None:
         "ALTER TABLE bookmarks ADD COLUMN source_ref TEXT",
         "ALTER TABLE bookmarks ADD COLUMN docker_ref TEXT",
         "ALTER TABLE bookmarks ADD COLUMN title_color TEXT",
+        "ALTER TABLE bookmarks ADD COLUMN icon_color TEXT",
     ):
         try:
             cur.execute(ddl)
