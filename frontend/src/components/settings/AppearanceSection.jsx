@@ -3,7 +3,7 @@ import { ArrowRight, Check, ExternalLink, Globe, Monitor, Moon, Search, Sun } fr
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useAppState } from '../../context/AppStateContext.jsx'
 import { errorMessage } from '../../services/api.js'
-import { SettingsSection, SettingsGroup, SettingsRow, SettingsFootnote, Toggle } from './SettingsKit.jsx'
+import { ColorField, SettingsSection, SettingsGroup, SettingsRow, SettingsFootnote, Toggle } from './SettingsKit.jsx'
 import Favicon from '../Favicon.jsx'
 
 const THEMES = [
@@ -79,6 +79,7 @@ export default function AppearanceSection() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [iconBusy, setIconBusy] = useState(false)
+  const [iconColorBusy, setIconColorBusy] = useState(false)
   const [prefBusy, setPrefBusy] = useState(false)
 
   const onChange = async (value) => {
@@ -114,6 +115,18 @@ export default function AppearanceSection() {
       setError(errorMessage(err))
     } finally {
       setPrefBusy(false)
+    }
+  }
+
+  const onChangeIconColor = async (value) => {
+    setIconColorBusy(true)
+    setError('')
+    try {
+      await updateSettings({ icon_color: value })
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setIconColorBusy(false)
     }
   }
 
@@ -220,6 +233,17 @@ export default function AppearanceSection() {
                   </button>
                 )
               })}
+            </div>
+          </SettingsRow>
+        )}
+        {user?.role === 'admin' && (
+          <SettingsRow
+            label="Default icon colour"
+            hint="Site-wide fallback for tintable SVG and library icons. Pages, groups, and bookmarks can override it."
+            stack
+          >
+            <div className={iconColorBusy ? 'pointer-events-none opacity-70' : ''}>
+              <ColorField value={settings.icon_color || ''} onChange={onChangeIconColor} />
             </div>
           </SettingsRow>
         )}

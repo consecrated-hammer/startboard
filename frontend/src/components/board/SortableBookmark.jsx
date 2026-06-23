@@ -132,7 +132,7 @@ function BookmarkMenu({ items }) {
   )
 }
 
-export default function SortableBookmark({ bookmark, editing, canManage = false, dndEnabled = editing, openNewTab = true, showWebsiteIcons = true, displayMode = 'list', iconSize = 'small', bookmarkAlign = 'auto', onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onMoveTop, onMoveBottom, onDelete }) {
+export default function SortableBookmark({ bookmark, editing, canManage = false, dndEnabled = editing, openNewTab = true, showWebsiteIcons = true, displayMode = 'list', iconSize = 'small', bookmarkAlign = 'auto', titleColor = '', iconColor = '', onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onMoveTop, onMoveBottom, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `b:${bookmark.id}`,
     data: { type: 'bookmark', bookmark },
@@ -150,6 +150,8 @@ export default function SortableBookmark({ bookmark, editing, canManage = false,
   const displayUrl = bookmarkDisplayUrl(bookmark)
   const alignMode = bookmarkAlign || 'auto'
   const isCentered = alignMode === 'center'
+  // Title colour cascade: per-bookmark override wins over the page/group default.
+  const resolvedTitleColor = bookmark.title_color || titleColor || undefined
   const [contextMenu, setContextMenu] = useState(null)
   const menuItems = useMemo(() => buildBookmarkMenuItems(bookmark, canManage, {
     onOpen,
@@ -174,10 +176,10 @@ export default function SortableBookmark({ bookmark, editing, canManage = false,
       className="flex shrink-0 items-center justify-center"
       style={{ width: iconStageSize, height: iconStageSize }}
     >
-      <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} treatment="tile" />
+      <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} treatment="tile" color={bookmark.icon_color || iconColor} />
     </span>
   ) : (
-    <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} />
+    <Favicon iconUrl={bookmark.icon_url} title={bookmark.title} size={resolvedIconSize} show={showWebsiteIcons} color={bookmark.icon_color || iconColor} />
   )
 
   const inner = (
@@ -185,7 +187,7 @@ export default function SortableBookmark({ bookmark, editing, canManage = false,
       {iconNode}
       {displayMode !== 'icons' && (
         <span className={`min-w-0 flex-1 ${displayMode === 'detailed' ? '' : 'truncate'} ${isCentered ? 'text-center' : 'text-left'}`}>
-          <span className="block truncate">{bookmark.title}</span>
+          <span className="block truncate" style={{ color: resolvedTitleColor }}>{bookmark.title}</span>
           {displayMode === 'detailed' && bookmark.description && (
             <span className="mt-0.5 block truncate text-xs text-slate-400">{bookmark.description}</span>
           )}

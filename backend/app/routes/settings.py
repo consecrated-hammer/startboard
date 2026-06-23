@@ -23,6 +23,7 @@ def public_settings():
         "site_name": s.get("site_name"),
         "allow_sharing": s.get("allow_sharing") == "true",
         "icon_treatment": s.get("icon_treatment", "default"),
+        "icon_color": s.get("icon_color") or None,
     }
 
 
@@ -34,6 +35,7 @@ def admin_settings(_: dict = Depends(require_admin)):
         "site_name": app_settings.get("site_name"),
         "allow_sharing": app_settings.get("allow_sharing") == "true",
         "icon_treatment": app_settings.get("icon_treatment", "default"),
+        "icon_color": app_settings.get("icon_color") or None,
         "docker_integration_enabled": docker_settings["enabled"],
         "docker_api_endpoint": docker_settings["api_endpoint"],
         "docker_status_poll_seconds": docker_settings["poll_seconds"],
@@ -75,6 +77,8 @@ def update_settings(payload: AppSettingsUpdate, _: dict = Depends(require_admin)
         values["allow_sharing"] = "true" if payload.allow_sharing else "false"
     if payload.icon_treatment is not None:
         values["icon_treatment"] = payload.icon_treatment
+    if payload.icon_color is not None:
+        values["icon_color"] = payload.icon_color.strip()
     if payload.docker_integration_enabled is not None:
         values["docker_integration_enabled"] = "true" if payload.docker_integration_enabled else "false"
     if payload.docker_api_endpoint is not None:

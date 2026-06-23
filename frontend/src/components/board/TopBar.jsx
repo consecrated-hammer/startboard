@@ -1,10 +1,53 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Columns3, Palette, PencilLine, Plus, Search, Settings2 } from 'lucide-react'
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { Check, Columns3, GripVertical, Palette, PencilLine, Plus, Search, Settings2 } from 'lucide-react'
 import { useAppState } from '../../context/AppStateContext.jsx'
 import { btnGhost, btnPrimary, btnSecondary, input } from '../ui.js'
 import { ColorField, RangeField } from '../settings/SettingsKit.jsx'
+import ContextMenu from '../ContextMenu.jsx'
 import UserMenu from './UserMenu.jsx'
+
+// A draggable page tab shown only while editing. The grip handle carries the
+// drag listeners so the tab label stays clickable for navigation; right-click
+// opens a precise "move" menu as an accessible accelerator to dragging.
+function SortablePageTab({ page, active, onSelect, onContextMenu }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onContextMenu={(event) => onContextMenu(event, page)}
+      className={`flex shrink-0 items-center rounded-lg pr-1 transition ${
+        active ? 'bg-white/10' : 'hover:bg-white/5'
+      }`}
+    >
+      <span
+        className="flex cursor-grab items-center pl-1.5 text-slate-500 hover:text-slate-300"
+        title="Drag to reorder page"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </span>
+      <button
+        onClick={() => onSelect(page.id)}
+        className={`cursor-pointer whitespace-nowrap py-1.5 pl-1 pr-2 text-sm transition ${
+          active ? 'font-medium text-white' : 'text-slate-300'
+        }`}
+      >
+        {page.title}
+      </button>
+    </div>
+  )
+}
 
 function ToolbarPopover({ button, children, width = 'w-80' }) {
   const [open, setOpen] = useState(false)
@@ -174,11 +217,53 @@ function ColumnsMenu({ page, onPatchPage }) {
 }
 
 export default function TopBar({
-  pages, currentPageId, onSelectPage, onAddPage,
+  pages, currentPageId, onSelectPage, onAddPage, onReorderPages,
   editing, onToggleEdit, canEdit, onOpenSettings, onAddGroup, currentPage, onPatchPage,
   showSearch = false, onOpenSearch, searchShortcutLabel = 'Ctrl K',
 }) {
   const { settings } = useAppState()
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  const [tabMenu, setTabMenu] = useState(null)
+  const reorderable = editing && canEdit && pages.length > 1
+
+  const handlePageDragEnd = (event) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const from = pages.findIndex((p) => p.id === active.id)
+    const to = pages.findIndex((p) => p.id === over.id)
+    if (from < 0 || to < 0) return
+    onReorderPages?.(arrayMove(pages, from, to).map((p) => p.id))
+  }
+
+  const movePage = (page, where) => {
+    const from = pages.findIndex((p) => p.id === page.id)
+    if (from < 0) return
+    const last = pages.length - 1
+    const to = where === 'start' ? 0
+      : where === 'end' ? last
+      : where === 'left' ? Math.max(0, from - 1)
+      : Math.min(last, from + 1)
+    if (to === from) return
+    onReorderPages?.(arrayMove(pages, from, to).map((p) => p.id))
+  }
+
+  const openTabMenu = (event, page) => {
+    event.preventDefault()
+    setTabMenu({ page, position: { x: event.clientX, y: event.clientY } })
+  }
+
+  const tabMenuItems = (() => {
+    if (!tabMenu) return []
+    const idx = pages.findIndex((p) => p.id === tabMenu.page.id)
+    const atStart = idx <= 0
+    const atEnd = idx >= pages.length - 1
+    return [
+      { key: 'left', label: 'Move left', glyph: '←', disabled: atStart, onClick: () => movePage(tabMenu.page, 'left') },
+      { key: 'right', label: 'Move right', glyph: '→', disabled: atEnd, onClick: () => movePage(tabMenu.page, 'right') },
+      { key: 'start', label: 'Move to start', glyph: '⇤', disabled: atStart, onClick: () => movePage(tabMenu.page, 'start') },
+      { key: 'end', label: 'Move to end', glyph: '⇥', disabled: atEnd, onClick: () => movePage(tabMenu.page, 'end') },
+    ]
+  })()
 
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-900/70 backdrop-blur">
@@ -196,19 +281,35 @@ export default function TopBar({
           <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {pages.length > 0 ? (
             <>
-              {pages.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => onSelectPage(p.id)}
-                  className={`cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition ${
-                    p.id === currentPageId
-                      ? 'bg-white/10 font-medium text-white'
-                      : 'text-slate-300 hover:bg-white/5'
-                  }`}
-                >
-                  {p.title}
-                </button>
-              ))}
+              {reorderable ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePageDragEnd}>
+                  <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
+                    {pages.map((p) => (
+                      <SortablePageTab
+                        key={p.id}
+                        page={p}
+                        active={p.id === currentPageId}
+                        onSelect={onSelectPage}
+                        onContextMenu={openTabMenu}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                pages.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => onSelectPage(p.id)}
+                    className={`cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition ${
+                      p.id === currentPageId
+                        ? 'bg-white/10 font-medium text-white'
+                        : 'text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    {p.title}
+                  </button>
+                ))
+              )}
               <button onClick={onAddPage} className={`${btnGhost} px-2 py-1.5`} title="New page" aria-label="New page">
                 <Plus className="h-4 w-4" />
               </button>
@@ -282,6 +383,12 @@ export default function TopBar({
           <UserMenu />
         </div>
       </div>
+      <ContextMenu
+        open={!!tabMenu}
+        position={tabMenu?.position}
+        items={tabMenuItems}
+        onClose={() => setTabMenu(null)}
+      />
     </header>
   )
 }
