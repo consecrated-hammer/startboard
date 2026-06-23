@@ -1,7 +1,5 @@
 """Bookmark routes."""
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
@@ -48,13 +46,11 @@ async def upload_icon(
 
 @router.get("/icons/render/{filename}")
 def render_local_svg_icon(filename: str, color: str):
-    if Path(filename).suffix.lower() != ".svg":
-        raise HTTPException(status_code=400, detail="Only SVG icons can be recoloured")
     try:
         path = local_icon_file(filename)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if not path.exists():
+    except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Icon not found")
     data = recolor_svg_bytes(path.read_bytes(), color)
     return Response(

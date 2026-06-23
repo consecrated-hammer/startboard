@@ -56,7 +56,10 @@ def local_icon_file(filename: str) -> Path:
     normalized = (filename or "").strip().lower()
     if not LOCAL_ICON_FILENAME_RE.fullmatch(normalized):
         raise ValueError("Invalid icon filename")
-    return icon_dir() / normalized
+    for candidate in icon_dir().iterdir():
+        if candidate.is_file() and candidate.name.lower() == normalized:
+            return candidate
+    raise FileNotFoundError(normalized)
 
 
 def _guess_extension(content_type: str | None, source_url: str) -> str:
