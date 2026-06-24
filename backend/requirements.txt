@@ -6,7 +6,7 @@ pydantic==2.13.4
 pydantic-settings==2.14.0
 python-dotenv==1.2.2
 passlib[bcrypt]==1.7.4
-bcrypt==5.0.0   # pinned: passlib 1.7.4 reads bcrypt.__about__ removed in 4.1+
+bcrypt==4.0.1   # passlib 1.7.4 works with bcrypt 4.0.x; bcrypt 5.0.0 breaks password hashing during backend init
 python-multipart==0.0.32
 httpx==0.28.1
 PyYAML==6.0.3
