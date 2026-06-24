@@ -616,7 +616,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
               <div className="flex items-center gap-2"><Favicon iconUrl={resolvedIconUrl} title={title} size={18} color={iconColor} /><span className="text-xs text-slate-400">Preview</span></div>
             </div>
             {iconSource === 'auto' && <div className="rounded-lg border border-dashed border-white/10 px-3 py-2.5 text-xs text-slate-400">Startboard will show the letter tile for this group.</div>}
-            {iconSource === 'direct' && <div><input className={input} value={directIconUrl} onChange={(e) => setDirectIconUrl(e.target.value)} placeholder="/icons/folder.svg or https://cdn.example.com/folder.svg" /><p className="mt-1.5 text-xs text-slate-400">Self-hosted SVG/PNG asset or any explicit image URL.</p></div>}
+            {iconSource === 'direct' && <div><input className={input} value={directIconUrl} onChange={(e) => { setIconSourceDirty(true); setDirectIconUrl(e.target.value) }} placeholder="/icons/folder.svg or https://cdn.example.com/folder.svg" /><p className="mt-1.5 text-xs text-slate-400">Self-hosted SVG/PNG asset or any explicit image URL.</p></div>}
             {iconSource === 'upload' && (
               <div className="space-y-3">
                 <div className="rounded-lg border border-dashed border-white/15 bg-slate-900/30 p-3">
@@ -653,11 +653,11 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
                 {libraryProvider === 'selfhst' ? (
                   <>
                     <IconResults title={`${activeLibraryProvider.label} results`} subtitle={trimmedSearchQuery ? `Query: ${trimmedSearchQuery}` : activeLibraryProvider.hint} busy={selfhStLoading} error={selfhStError} empty={selfhStResultsEmpty}>
-                      {selfhStResults.map((icon) => <SelfhStResultButton key={icon.ref} icon={icon} selected={icon.ref === selfhStRef} onSelect={(selected) => { setSelfhStSelection(selected); setSelfhStRef(selected.ref); }} cdnBaseUrl={selfhStCdnBaseUrl} />)}
+                      {selfhStResults.map((icon) => <SelfhStResultButton key={icon.ref} icon={icon} selected={icon.ref === selfhStRef} onSelect={(selected) => { setIconSourceDirty(true); setSelfhStSelection(selected); setSelfhStRef(selected.ref); }} cdnBaseUrl={selfhStCdnBaseUrl} />)}
                     </IconResults>
                     <Advanced summary="Catalog settings">
                       <div className="space-y-3">
-                        <Labeled text="Selected reference"><input className={input} value={selfhStRef} onChange={(e) => { setSelfhStRef(e.target.value); setSelfhStSelection(null) }} placeholder="immich" /></Labeled>
+                        <Labeled text="Selected reference"><input className={input} value={selfhStRef} onChange={(e) => { setIconSourceDirty(true); setSelfhStRef(e.target.value); setSelfhStSelection(null) }} placeholder="immich" /></Labeled>
                         <Labeled text="selfh.st index URL"><input className={input} value={selfhStIndexUrl} onChange={(e) => { setSelfhStIndexUrl(e.target.value); setSelfhStLoaded(false); setSelfhStIcons([]) }} /></Labeled>
                         <Labeled text="Icon CDN base"><input className={input} value={selfhStCdnBaseUrl} onChange={(e) => setSelfhStCdnBaseUrl(e.target.value)} /></Labeled>
                       </div>
@@ -666,11 +666,11 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
                 ) : libraryProvider === 'dashboardicons' ? (
                   <>
                     <IconResults title={`${activeLibraryProvider.label} results`} subtitle={trimmedSearchQuery ? `Query: ${trimmedSearchQuery}` : activeLibraryProvider.hint} busy={dashLoading} error={dashError} empty={dashResultsEmpty}>
-                      {dashResults.map((icon) => <DashResultButton key={icon.ref} icon={icon} selected={icon.ref === dashRef} onSelect={(selected) => { setDashSelection(selected); setDashRef(selected.ref); }} cdnBaseUrl={dashCdnBaseUrl} />)}
+                      {dashResults.map((icon) => <DashResultButton key={icon.ref} icon={icon} selected={icon.ref === dashRef} onSelect={(selected) => { setIconSourceDirty(true); setDashSelection(selected); setDashRef(selected.ref); }} cdnBaseUrl={dashCdnBaseUrl} />)}
                     </IconResults>
                     <Advanced summary="Catalog settings">
                       <div className="space-y-3">
-                        <Labeled text="Selected name"><input className={input} value={dashRef} onChange={(e) => { setDashRef(e.target.value); setDashSelection(null) }} placeholder="ntopng" /></Labeled>
+                        <Labeled text="Selected name"><input className={input} value={dashRef} onChange={(e) => { setIconSourceDirty(true); setDashRef(e.target.value); setDashSelection(null) }} placeholder="ntopng" /></Labeled>
                         <Labeled text="Metadata URL"><input className={input} value={dashIndexUrl} onChange={(e) => { setDashIndexUrl(e.target.value); setDashLoaded(false); setDashIcons([]) }} /></Labeled>
                         <Labeled text="Icon CDN base"><input className={input} value={dashCdnBaseUrl} onChange={(e) => setDashCdnBaseUrl(e.target.value)} /></Labeled>
                       </div>
@@ -679,12 +679,12 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
                 ) : (
                   <>
                     <IconResults title={`${activeLibraryProvider.label} results`} subtitle={trimmedSearchQuery ? `Query: ${trimmedSearchQuery}` : activeLibraryProvider.hint} busy={searchBusy} error={searchError} empty={iconifyResultsEmpty}>
-                      {searchResults.map((icon) => <SearchResultButton key={icon} icon={icon} selected={icon === `${iconifyPrefix}:${iconifyName}`} onSelect={(selected) => { const [prefix, name] = selected.split(':'); setIconifyPrefix(prefix); setIconifyName(name) }} baseUrl={iconifyBaseUrl} color={iconifyColor} />)}
+                      {searchResults.map((icon) => <SearchResultButton key={icon} icon={icon} selected={icon === `${iconifyPrefix}:${iconifyName}`} onSelect={(selected) => { const [prefix, name] = selected.split(':'); setIconSourceDirty(true); setIconifyPrefix(prefix); setIconifyName(name) }} baseUrl={iconifyBaseUrl} color={iconifyColor} />)}
                     </IconResults>
                     <Advanced summary="Provider settings">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <Labeled text="Selected name"><input className={input} value={iconifyName} onChange={(e) => setIconifyName(e.target.value)} placeholder="folder" /></Labeled>
-                        <Labeled text="Collection prefix"><input className={input} value={iconifyPrefix} onChange={(e) => setIconifyPrefix(e.target.value)} placeholder="lucide" /></Labeled>
+                        <Labeled text="Selected name"><input className={input} value={iconifyName} onChange={(e) => { setIconSourceDirty(true); setIconifyName(e.target.value) }} placeholder="folder" /></Labeled>
+                        <Labeled text="Collection prefix"><input className={input} value={iconifyPrefix} onChange={(e) => { setIconSourceDirty(true); setIconifyPrefix(e.target.value) }} placeholder="lucide" /></Labeled>
                         <Labeled text="Icon API base"><input className={input} value={iconifyBaseUrl} onChange={(e) => setIconifyBaseUrl(e.target.value)} placeholder="https://api.iconify.design" /></Labeled>
                       </div>
                     </Advanced>

@@ -534,6 +534,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
 
   const chooseSearchResult = (icon) => {
     const [prefix, name] = icon.split(':')
+    setIconSourceDirty(true)
     setIconifyPrefix(prefix)
     setIconifyName(name)
   }
@@ -562,11 +563,13 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
   }
 
   const chooseSelfhStIcon = (icon) => {
+    setIconSourceDirty(true)
     setSelfhStSelection(icon)
     setSelfhStRef(icon.ref)
   }
 
   const chooseDashIcon = (icon) => {
+    setIconSourceDirty(true)
     setDashSelection(icon)
     setDashRef(icon.ref)
   }
@@ -736,7 +739,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
               <input
                 className={input}
                 value={directIconUrl}
-                onChange={(e) => setDirectIconUrl(e.target.value)}
+                onChange={(e) => { setIconSourceDirty(true); setDirectIconUrl(e.target.value) }}
                 placeholder="/icons/plex.svg or https://cdn.example.com/plex.svg"
               />
               <p className="mt-1.5 text-xs text-slate-400">Self-hosted SVG/PNG asset or any explicit image URL.</p>
@@ -860,7 +863,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
                         <input
                           className={input}
                           value={selfhStRef}
-                          onChange={(e) => { setSelfhStRef(e.target.value); setSelfhStSelection(null) }}
+                          onChange={(e) => { setIconSourceDirty(true); setSelfhStRef(e.target.value); setSelfhStSelection(null) }}
                           placeholder="immich"
                         />
                       </Labeled>
@@ -903,7 +906,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
                         <input
                           className={input}
                           value={dashRef}
-                          onChange={(e) => { setDashRef(e.target.value); setDashSelection(null) }}
+                          onChange={(e) => { setIconSourceDirty(true); setDashRef(e.target.value); setDashSelection(null) }}
                           placeholder="ntopng"
                         />
                       </Labeled>
@@ -944,10 +947,10 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
                   <Advanced summary="Provider settings">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Labeled text="Selected name">
-                        <input className={input} value={iconifyName} onChange={(e) => setIconifyName(e.target.value)} placeholder="settings" />
+                        <input className={input} value={iconifyName} onChange={(e) => { setIconSourceDirty(true); setIconifyName(e.target.value) }} placeholder="settings" />
                       </Labeled>
                       <Labeled text="Collection prefix">
-                        <input className={input} value={iconifyPrefix} onChange={(e) => setIconifyPrefix(e.target.value)} placeholder="lucide" />
+                        <input className={input} value={iconifyPrefix} onChange={(e) => { setIconSourceDirty(true); setIconifyPrefix(e.target.value) }} placeholder="lucide" />
                       </Labeled>
                     <Labeled text="Icon API base">
                       <input className={input} value={iconifyBaseUrl} onChange={(e) => setIconifyBaseUrl(e.target.value)} placeholder="https://api.iconify.design" />
