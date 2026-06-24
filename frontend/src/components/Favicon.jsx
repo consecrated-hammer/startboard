@@ -58,6 +58,17 @@ function buildLocalSvgRenderUrl({ filename, color }) {
   return url.toString()
 }
 
+function sanitizeImageUrl(rawUrl) {
+  if (!rawUrl) return ''
+  try {
+    const parsed = new URL(rawUrl, window.location.origin)
+    if (!['http:', 'https:'].includes(parsed.protocol)) return ''
+    return parsed.toString()
+  } catch {
+    return ''
+  }
+}
+
 // Renders a bookmark favicon; on load error falls back to a letter tile.
 // `treatment` overrides the site-wide icon_treatment (used by the settings preview).
 export default function Favicon({ iconUrl, title, size = 18, show = true, treatment, color = '' }) {
@@ -70,7 +81,7 @@ export default function Favicon({ iconUrl, title, size = 18, show = true, treatm
   const treatmentColor = THEME_ICON_COLORS[resolvedTheme] || THEME_ICON_COLORS.dark
   const effectiveColor = requestedColor || (iconTreatment !== 'default' ? treatmentColor : '')
   const shouldTreatAsIcon = (parsedIconify || parsedLocalSvg?.tintable) && (iconTreatment !== 'default' || !!requestedColor)
-  const effectiveUrl = parsedIconify && effectiveColor
+  const resolvedUrl = parsedIconify && effectiveColor
     ? buildIconifyUrl({
       ...parsedIconify,
       color: effectiveColor,
@@ -78,6 +89,7 @@ export default function Favicon({ iconUrl, title, size = 18, show = true, treatm
     : parsedLocalSvg && effectiveColor
       ? buildLocalSvgRenderUrl({ filename: parsedLocalSvg.filename, color: effectiveColor })
       : iconUrl
+  const effectiveUrl = sanitizeImageUrl(resolvedUrl)
   const failed = failedUrl === effectiveUrl
   const letter = (title || '?').trim().charAt(0).toUpperCase()
   const tilePadding = iconTreatment === 'tile' ? Math.max(1, Math.round(size * 0.14)) : 0
