@@ -86,7 +86,7 @@ export default function Favicon({ iconUrl, title, size = 18, show = true, treatm
       ...parsedIconify,
       color: effectiveColor,
     })
-    : parsedLocalSvg && effectiveColor
+    : parsedLocalSvg?.tintable && effectiveColor
       ? buildLocalSvgRenderUrl({ filename: parsedLocalSvg.filename, color: effectiveColor })
       : iconUrl
   const effectiveUrl = sanitizeImageUrl(resolvedUrl)
