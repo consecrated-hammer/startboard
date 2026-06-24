@@ -8,13 +8,14 @@ import hashlib
 import mimetypes
 import re
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import httpx
 
 from app.config import settings
 
 LOCAL_ICON_PREFIX = "/api/icons/"
+TINTABLE_QUERY_KEY = "sb_tintable"
 MAX_ICON_BYTES = 2 * 1024 * 1024
 DEFAULT_TIMEOUT = 10.0
 ALLOWED_UPLOAD_EXTS = {".svg", ".png", ".ico", ".webp", ".jpg", ".jpeg", ".gif"}
@@ -50,6 +51,26 @@ def is_local_icon_path(value: str | None) -> bool:
 
 def public_icon_path(filename: str) -> str:
     return f"{LOCAL_ICON_PREFIX}{filename}"
+
+
+def _append_query_value(path: str, key: str, value: str) -> str:
+    parsed = urlparse(path)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query[key] = value
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def _strip_internal_query_params(source_url: str) -> tuple[str, bool]:
+    parsed = urlparse(source_url)
+    query_items = []
+    tintable = False
+    for key, value in parse_qsl(parsed.query, keep_blank_values=True):
+        if key == TINTABLE_QUERY_KEY:
+            tintable = value == "1"
+            continue
+        query_items.append((key, value))
+    cleaned = urlunparse(parsed._replace(query=urlencode(query_items)))
+    return cleaned, tintable
 
 
 def local_icon_file(filename: str) -> Path:
@@ -145,18 +166,22 @@ def ingest_remote_icon(source_url: str | None) -> str | None:
     """
     if not source_url:
         return None
-    if is_local_icon_path(source_url):
+    cleaned_source_url, tintable = _strip_internal_query_params(source_url)
+    if is_local_icon_path(cleaned_source_url):
         return source_url
 
-    parsed = urlparse(source_url)
+    parsed = urlparse(cleaned_source_url)
     if parsed.scheme not in {"http", "https"}:
-        return source_url
+        return cleaned_source_url
 
     try:
-        data, ext = _download_icon(source_url)
-        return _store_icon_bytes(data, ext)
+        data, ext = _download_icon(cleaned_source_url)
+        stored = _store_icon_bytes(data, ext)
+        if tintable and ext == ".svg":
+            return _append_query_value(stored, TINTABLE_QUERY_KEY, "1")
+        return stored
     except Exception:
-        return source_url
+        return cleaned_source_url
 
 
 def recolor_svg_bytes(data: bytes, color: str) -> bytes:
