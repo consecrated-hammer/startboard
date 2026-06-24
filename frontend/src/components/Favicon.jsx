@@ -43,7 +43,10 @@ function parseLocalSvgUrl(url) {
     if (parsed.origin !== window.location.origin || !parsed.pathname.startsWith(LOCAL_ICON_PREFIX) || !parsed.pathname.endsWith('.svg')) {
       return null
     }
-    return { filename: decodeURIComponent(parsed.pathname.slice(LOCAL_ICON_PREFIX.length)) }
+    return {
+      filename: decodeURIComponent(parsed.pathname.slice(LOCAL_ICON_PREFIX.length)),
+      tintable: parsed.searchParams.get('sb_tintable') === '1',
+    }
   } catch {
     return null
   }
@@ -66,7 +69,7 @@ export default function Favicon({ iconUrl, title, size = 18, show = true, treatm
   const requestedColor = color.trim() || (settings.icon_color || '').trim()
   const treatmentColor = THEME_ICON_COLORS[resolvedTheme] || THEME_ICON_COLORS.dark
   const effectiveColor = requestedColor || (iconTreatment !== 'default' ? treatmentColor : '')
-  const shouldTreatAsIcon = (parsedIconify || parsedLocalSvg) && (iconTreatment !== 'default' || !!requestedColor)
+  const shouldTreatAsIcon = (parsedIconify || parsedLocalSvg?.tintable) && (iconTreatment !== 'default' || !!requestedColor)
   const effectiveUrl = parsedIconify && effectiveColor
     ? buildIconifyUrl({
       ...parsedIconify,

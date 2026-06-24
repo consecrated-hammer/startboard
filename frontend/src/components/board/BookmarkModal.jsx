@@ -90,6 +90,7 @@ function buildIconifyUrl({ baseUrl, prefix, name, color }) {
     window.location.origin,
   )
   if (color.trim()) url.searchParams.set('color', color.trim())
+  url.searchParams.set('sb_tintable', '1')
   return url.toString()
 }
 
