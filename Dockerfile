@@ -50,7 +50,7 @@ shutil.copytree(src, unpacked)
 with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     for path in sorted(unpacked.rglob("*")):
         if path.is_file():
-            zf.write(path, path.relative_to(out_dir))
+            zf.write(path, path.relative_to(unpacked))
 PY
 
 RUN mkdir -p /data

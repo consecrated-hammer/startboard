@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Check, Columns3, GripVertical, Palette, PencilLine, Plus, Search, Settings2 } from 'lucide-react'
+import { Check, Columns3, Copy, GripVertical, Link2, Palette, PencilLine, Plus, Search, Settings2, ShieldOff } from 'lucide-react'
 import { useAppState } from '../../context/AppStateContext.jsx'
 import { btnGhost, btnPrimary, btnSecondary, input } from '../ui.js'
 import { ColorField, RangeField } from '../settings/SettingsKit.jsx'
@@ -218,7 +218,8 @@ function ColumnsMenu({ page, onPatchPage }) {
 
 export default function TopBar({
   pages, currentPageId, onSelectPage, onAddPage, onReorderPages,
-  editing, onToggleEdit, canEdit, onOpenSettings, onAddGroup, currentPage, onPatchPage,
+  editing, onToggleEdit, canEdit, onOpenSettings, onOpenPageSettings, onSharePage, onUnsharePage, onCopyPageShareLink,
+  onAddGroup, currentPage, onPatchPage,
   showSearch = false, onOpenSearch, searchShortcutLabel = 'Ctrl K',
 }) {
   const { settings } = useAppState()
@@ -257,12 +258,48 @@ export default function TopBar({
     const idx = pages.findIndex((p) => p.id === tabMenu.page.id)
     const atStart = idx <= 0
     const atEnd = idx >= pages.length - 1
-    return [
-      { key: 'left', label: 'Move left', glyph: '←', disabled: atStart, onClick: () => movePage(tabMenu.page, 'left') },
-      { key: 'right', label: 'Move right', glyph: '→', disabled: atEnd, onClick: () => movePage(tabMenu.page, 'right') },
-      { key: 'start', label: 'Move to start', glyph: '⇤', disabled: atStart, onClick: () => movePage(tabMenu.page, 'start') },
-      { key: 'end', label: 'Move to end', glyph: '⇥', disabled: atEnd, onClick: () => movePage(tabMenu.page, 'end') },
+    const items = [
+      {
+        key: 'settings',
+        label: 'Page settings',
+        icon: Settings2,
+        onClick: () => onOpenPageSettings?.(tabMenu.page),
+      },
     ]
+    if (settings.allow_sharing) {
+      if (tabMenu.page.share_id && tabMenu.page.visibility === 'shared') {
+        items.push(
+          {
+            key: 'copy-share-link',
+            label: 'Copy share link',
+            icon: Copy,
+            onClick: () => onCopyPageShareLink?.(tabMenu.page),
+          },
+          {
+            key: 'stop-sharing',
+            label: 'Stop sharing',
+            icon: ShieldOff,
+            onClick: () => onUnsharePage?.(tabMenu.page),
+          },
+        )
+      } else {
+        items.push({
+          key: 'create-share-link',
+          label: 'Create share link',
+          icon: Link2,
+          onClick: () => onSharePage?.(tabMenu.page),
+        })
+      }
+    }
+    if (reorderable) {
+      items.push(
+        { key: 'left', label: 'Move left', glyph: '←', disabled: atStart, onClick: () => movePage(tabMenu.page, 'left') },
+        { key: 'right', label: 'Move right', glyph: '→', disabled: atEnd, onClick: () => movePage(tabMenu.page, 'right') },
+        { key: 'start', label: 'Move to start', glyph: '⇤', disabled: atStart, onClick: () => movePage(tabMenu.page, 'start') },
+        { key: 'end', label: 'Move to end', glyph: '⇥', disabled: atEnd, onClick: () => movePage(tabMenu.page, 'end') },
+      )
+    }
+    return items
   })()
 
   return (
@@ -300,6 +337,7 @@ export default function TopBar({
                   <button
                     key={p.id}
                     onClick={() => onSelectPage(p.id)}
+                    onContextMenu={canEdit ? (event) => openTabMenu(event, p) : undefined}
                     className={`cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition ${
                       p.id === currentPageId
                         ? 'bg-white/10 font-medium text-white'
