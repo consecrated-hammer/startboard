@@ -387,7 +387,12 @@ def update_docker_assignments(payload: DockerAssignmentsUpdate, admin: dict = De
                 url = docker_placeholder_url(key)
 
             title = (workload["title"] or "").strip() or (existing["title"] if existing is not None else key)
-            icon_url = ingest_remote_icon(workload["icon_url"] or (existing["icon_url"] if existing is not None else None))
+            # Preserve a manually-assigned icon on existing docker links; only derive from
+            # the workload when creating a new link or when the existing one has no icon.
+            if existing is not None and existing["icon_url"]:
+                icon_url = existing["icon_url"]
+            else:
+                icon_url = ingest_remote_icon(workload["icon_url"])
             description = workload["description"] if workload["description"] is not None else (
                 existing["description"] if existing is not None else None
             )
