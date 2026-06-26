@@ -23,7 +23,7 @@ zip_path = Path(sys.argv[2])
 with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     for path in sorted(src.rglob("*")):
         if path.is_file():
-            zf.write(path, path.relative_to(src.parent))
+            zf.write(path, path.relative_to(src))
 PY
 
 echo "Packaged Edge extension:"

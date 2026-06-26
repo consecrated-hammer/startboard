@@ -160,6 +160,7 @@ export default function BoardPage() {
   const [moveGroupModal, setMoveGroupModal] = useState(null)
   const [bookmarkManagerGroup, setBookmarkManagerGroup] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsState, setSettingsState] = useState(null)
   const [prompt, setPrompt] = useState(null)
   const [moveGroupError, setMoveGroupError] = useState('')
   const [moveGroupBusy, setMoveGroupBusy] = useState(false)
@@ -611,6 +612,18 @@ export default function BoardPage() {
     title: 'New page', fieldLabel: 'Page name',
     onSubmit: async (name) => { const p = await pagesAPI.create(name); await loadPages(); navigate(`/p/${p.id}`) },
   })
+  const openPageSettings = useCallback(async (page = null) => {
+    const targetId = page?.id ?? board?.page?.id
+    if (!targetId) return
+    if (board?.page?.id === targetId) {
+      setSettingsState({ page: board.page, groups })
+      setSettingsOpen(true)
+      return
+    }
+    const data = await pagesAPI.get(targetId)
+    setSettingsState({ page: data.page, groups: data.groups })
+    setSettingsOpen(true)
+  }, [board, groups])
   const openAddGroup = () => setGroupModal({ group: null })
   const renameGroup = (group) => setGroupModal({ group })
   const copyGroup = async (group) => {
@@ -676,6 +689,24 @@ export default function BoardPage() {
   const copyBookmarkLink = async (bookmark) => {
     if (!isBookmarkLaunchable(bookmark)) return
     await navigator.clipboard?.writeText(bookmark.url)
+  }
+  const copyPageShareLink = async (page) => {
+    if (!page?.share_id) return
+    const slug = page.slug || 'page'
+    await navigator.clipboard?.writeText(`${window.location.origin}/s/${page.share_id}/${slug}`)
+  }
+  const sharePage = async (page) => {
+    if (!page?.id) return
+    const result = await pagesAPI.share(page.id)
+    await loadPages()
+    if (board?.page?.id === page.id) await loadBoard(page.id)
+    await copyPageShareLink({ ...page, share_id: result.share_id })
+  }
+  const unsharePage = async (page) => {
+    if (!page?.id) return
+    await pagesAPI.unshare(page.id)
+    await loadPages()
+    if (board?.page?.id === page.id) await loadBoard(page.id)
   }
   const trackBookmarkOpen = (bookmark) => {
     if (!board?.page?.id || !board?.page?.analytics_enabled || !bookmark?.id) return
@@ -752,7 +783,11 @@ export default function BoardPage() {
         editing={effectiveEditing}
         onToggleEdit={() => setEditing((e) => !e)}
         canEdit={canEdit}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => openPageSettings(board?.page)}
+        onOpenPageSettings={openPageSettings}
+        onSharePage={sharePage}
+        onUnsharePage={unsharePage}
+        onCopyPageShareLink={copyPageShareLink}
         onAddGroup={openAddGroup}
         onPatchPage={patchPage}
         showSearch={showSearchBar}
@@ -915,13 +950,26 @@ export default function BoardPage() {
           onClose={() => setGroupModal(null)}
         />
       )}
-      {settingsOpen && board && (
+      {settingsOpen && settingsState && (
         <PageSettingsModal
-          page={board.page}
-          groups={groups.flat()}
-          onClose={() => setSettingsOpen(false)}
-          onSaved={async () => { await loadPages(); await loadBoard(board.page.id) }}
-          onDeleted={async () => { const list = await loadPages(); navigate(list[0] ? `/p/${list[0].id}` : '/') }}
+          page={settingsState.page}
+          groups={settingsState.groups}
+          onClose={() => {
+            setSettingsOpen(false)
+            setSettingsState(null)
+          }}
+          onSaved={async () => {
+            await loadPages()
+            if (board?.page?.id === settingsState.page.id) await loadBoard(board.page.id)
+          }}
+          onDeleted={async () => {
+            const list = await loadPages()
+            if (board?.page?.id === settingsState.page.id) {
+              navigate(list[0] ? `/p/${list[0].id}` : '/')
+            }
+            setSettingsOpen(false)
+            setSettingsState(null)
+          }}
         />
       )}
       {moveGroupModal && (
