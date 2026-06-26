@@ -92,6 +92,7 @@ function estimateGroupHeight(group) {
 }
 
 const GROUP_ALIGN_JUSTIFY = { left: 'start', center: 'center', right: 'end' }
+const ICON_SIZE_MAP = { small: 18, medium: 24, large: 32 }
 
 function buildColumns(flatGroups, count, autoBalance = false, singleRowOrder = 'natural') {
   const cols = Array.from({ length: count }, () => [])
@@ -115,6 +116,77 @@ function buildColumns(flatGroups, count, autoBalance = false, singleRowOrder = '
   }
   for (const g of sorted) cols[Math.min(g.column ?? 0, count - 1)].push(g)
   return cols
+}
+
+function PublicBookmarkButton({ bookmark, group, mergedPage, settings, preferences, onOpen }) {
+  const launchable = isBookmarkLaunchable(bookmark)
+  const displayMode = group.display_mode || 'list'
+  const resolvedIconSize = ICON_SIZE_MAP[group.icon_size] || ICON_SIZE_MAP.small
+  const iconStageSize = Math.max(resolvedIconSize + 10, 28)
+  const alignMode = group.bookmark_align || 'auto'
+  const isCentered = alignMode === 'center'
+  const resolvedTitleColor = bookmark.title_color || group.bookmark_title_color || mergedPage?.bookmark_title_color || undefined
+
+  const iconNode = displayMode === 'icons' ? (
+    <span
+      className="flex shrink-0 items-center justify-center"
+      style={{ width: iconStageSize, height: iconStageSize }}
+    >
+      <Favicon
+        iconUrl={bookmark.icon_url}
+        title={bookmark.title}
+        size={resolvedIconSize}
+        show={preferences.show_website_icons}
+        treatment="tile"
+        color={bookmark.icon_color || group.icon_color || mergedPage?.icon_color || settings.icon_color || ''}
+      />
+    </span>
+  ) : (
+    <Favicon
+      iconUrl={bookmark.icon_url}
+      title={bookmark.title}
+      size={resolvedIconSize}
+      show={preferences.show_website_icons}
+      color={bookmark.icon_color || group.icon_color || mergedPage?.icon_color || settings.icon_color || ''}
+    />
+  )
+
+  return (
+    <button
+      type="button"
+      title={bookmark.description || bookmarkDisplayUrl(bookmark) || 'Visibility-only Docker entry'}
+      aria-disabled={!launchable}
+      className={`sb-link flex min-w-0 rounded-md px-2 py-1.5 text-sm text-slate-200 ${
+        displayMode === 'icons'
+          ? `w-auto px-1.5 py-1 ${isCentered ? 'justify-self-center text-center' : 'justify-self-start text-left'}`
+          : ''
+      } ${launchable ? 'cursor-pointer' : 'cursor-default'} ${displayMode === 'cloud' ? 'flex-wrap' : ''}`}
+      onClick={() => {
+        onOpen?.(bookmark)
+        openBookmark(bookmark, mergedPage?.open_new_tab)
+      }}
+    >
+      <div
+        className={`flex min-w-0 flex-1 ${
+          displayMode === 'icons'
+            ? `flex-col justify-center gap-1.5 py-1 ${isCentered ? 'items-center text-center' : 'items-start text-left'}`
+            : `items-center gap-2 ${isCentered ? 'justify-center text-center' : ''}`
+        } ${displayMode === 'cloud' ? 'flex-wrap' : ''}`}
+      >
+        {iconNode}
+        {displayMode !== 'icons' && (
+          <span className={`min-w-0 flex-1 ${displayMode === 'detailed' ? '' : 'truncate'} ${isCentered ? 'text-center' : 'text-left'}`}>
+            <span className="block truncate" style={{ color: resolvedTitleColor }}>{bookmark.title}</span>
+            {displayMode === 'detailed' && bookmark.description && (
+              <span className="mt-0.5 block truncate text-xs text-slate-400">{bookmark.description}</span>
+            )}
+          </span>
+        )}
+        <DockerStatusBadge status={bookmark.docker_status} />
+        {!mergedPage?.open_new_tab && launchable && displayMode !== 'icons' && <ExternalLink className="h-3.5 w-3.5 text-slate-500" />}
+      </div>
+    </button>
+  )
 }
 
 function PublicViewOptionsModal({ page, draft, setDraft, onClose, onApply, onReset }) {
@@ -514,27 +586,30 @@ export default function PublicBoardPage() {
                     <Favicon iconUrl={g.icon_url} title={g.title} size={18} show={preferences.show_website_icons} color={g.icon_color || mergedPage?.icon_color || settings.icon_color || ''} />
                     <h3 className="truncate text-sm font-semibold uppercase tracking-wide text-slate-300">{g.title}</h3>
                   </div>
-                  <div className="p-2" style={{ display: 'grid', gap: `${mergedPage?.bookmark_gap ?? 2}px` }}>
+                  <div
+                    className="p-2"
+                    style={{
+                      display: 'grid',
+                      gap: `${g.display_mode === 'icons' ? Math.max(mergedPage?.bookmark_gap ?? 2, 10) : (mergedPage?.bookmark_gap ?? 2)}px`,
+                      gridTemplateColumns: g.display_mode === 'icons'
+                        ? 'repeat(auto-fit, minmax(44px, max-content))'
+                        : undefined,
+                      justifyContent: g.display_mode === 'icons'
+                        ? (g.bookmark_align === 'left' ? 'start' : 'center')
+                        : undefined,
+                      alignContent: g.display_mode === 'icons' ? 'start' : undefined,
+                    }}
+                  >
                     {g.bookmarks.map((b) => (
-                      <button
+                      <PublicBookmarkButton
                         key={b.id}
-                        type="button"
-                        title={b.description || bookmarkDisplayUrl(b) || 'Visibility-only Docker entry'}
-                        aria-disabled={!isBookmarkLaunchable(b)}
-                        className={`sb-link flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-slate-200 ${isBookmarkLaunchable(b) ? '' : 'cursor-default'}`}
-                        onClick={() => {
-                          trackBookmarkOpen(b)
-                          openBookmark(b, mergedPage?.open_new_tab)
-                        }}
-                      >
-                        <Favicon iconUrl={b.icon_url} title={b.title} show={preferences.show_website_icons} color={b.icon_color || g.icon_color || mergedPage?.icon_color || settings.icon_color || ''} />
-                        <span
-                          className="min-w-0 flex-1 truncate"
-                          style={{ color: b.title_color || g.bookmark_title_color || mergedPage?.bookmark_title_color || undefined }}
-                        >{b.title}</span>
-                        <DockerStatusBadge status={b.docker_status} />
-                        {!mergedPage?.open_new_tab && isBookmarkLaunchable(b) && <ExternalLink className="h-3.5 w-3.5 text-slate-500" />}
-                      </button>
+                        bookmark={b}
+                        group={g}
+                        mergedPage={mergedPage}
+                        settings={settings}
+                        preferences={preferences}
+                        onOpen={trackBookmarkOpen}
+                      />
                     ))}
                     {g.bookmarks.length === 0 && <div className="px-2 py-3 text-xs text-slate-500">Empty.</div>}
                   </div>
