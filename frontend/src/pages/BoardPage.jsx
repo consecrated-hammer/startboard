@@ -742,6 +742,7 @@ export default function BoardPage() {
   const handlers = {
     onOpenBookmark: trackBookmarkOpen,
     onEditBookmark: (group, b) => setBookmarkModal({ group, bookmark: b }),
+    onChangeBookmarkIcon: (group, b) => setBookmarkModal({ group, bookmark: b, focusIcon: true }),
     onAddBookmark: (group) => setBookmarkModal({ group, bookmark: null }),
     onEditBookmarks: openBookmarkManager,
     onOpenAll: openAllInTabs,
@@ -927,6 +928,7 @@ export default function BoardPage() {
           pages={pages}
           currentPageId={currentPageId}
           currentGroupId={bookmarkModal.group?.id ?? bookmarkModal.bookmark?.group_id ?? null}
+          focusIcon={bookmarkModal.focusIcon || false}
           onSave={saveBookmark}
           onDelete={deleteBookmark}
           onClose={() => setBookmarkModal(null)}
