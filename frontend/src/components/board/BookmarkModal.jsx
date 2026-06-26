@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { CircleHelp, Save } from 'lucide-react'
 import Modal from '../Modal.jsx'
 import Spinner from '../Spinner.jsx'
@@ -243,8 +243,9 @@ function IconResults({ title = 'Results', subtitle = '', busy, error, empty, chi
 }
 
 // Add or edit a bookmark. `bookmark` null => create mode.
-export default function BookmarkModal({ bookmark, groups = [], pages = [], currentPageId = null, currentGroupId = null, onSave, onDelete, onClose }) {
+export default function BookmarkModal({ bookmark, groups = [], pages = [], currentPageId = null, currentGroupId = null, focusIcon = false, onSave, onDelete, onClose }) {
   const editing = Boolean(bookmark)
+  const iconPanelRef = useRef(null)
   const parsedIconify = useMemo(() => parseIconifyUrl(bookmark?.icon_url || ''), [bookmark?.icon_url])
   // Pages the bookmark can be moved to: the current page plus any editable page.
   const movablePages = useMemo(
@@ -296,6 +297,17 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
       .finally(() => { if (!cancelled) setGroupsLoading(false) })
     return () => { cancelled = true }
   }, [pageId, onCurrentPage])
+
+  // When opened via the "Change icon" context-menu action, scroll the icon panel
+  // into view and move focus to the icon source picker instead of the URL field.
+  useEffect(() => {
+    if (!focusIcon) return
+    const panel = iconPanelRef.current
+    if (!panel) return
+    panel.scrollIntoView({ block: 'nearest' })
+    panel.querySelector('button')?.focus()
+  }, [focusIcon])
+
   const [iconSource, setIconSource] = useState('auto')
   const [iconSourceDirty, setIconSourceDirty] = useState(false)
   const [libraryProvider, setLibraryProvider] = useState(inferLibraryProvider(bookmark?.icon_url || '', parsedIconify))
@@ -673,7 +685,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
             </Labeled>
           )}
           <Labeled text="URL">
-            <input className={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" autoFocus />
+            <input className={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" autoFocus={!focusIcon} />
           </Labeled>
           <Labeled text="Title">
             <input className={input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the site's domain" />
@@ -684,7 +696,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
           </Labeled>
           <Labeled text="Icon colour (optional)">
             <ColorField value={iconColor} onChange={setIconColor} />
-            <p className="mt-1 text-xs text-slate-500">Overrides the group and page icon colour. Leave blank to inherit.</p>
+            <p className="mt-1 text-xs text-slate-500">Overrides the group and page icon colour. Leave blank to inherit. Only applies to monochrome icons from the Library (Iconify sets like Lucide) and uploaded SVGs — it has no effect on website favicons or full-colour logos (e.g. selfh.st, Dashboard Icons).</p>
           </Labeled>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <Labeled text="Description (optional)">
@@ -697,7 +709,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
           <p className="text-xs text-slate-500">Docker reference: container/service name for live status — leave blank to hide it.</p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 2xl:p-5">
+        <div ref={iconPanelRef} className="rounded-xl border border-white/10 bg-white/5 p-4 2xl:p-5">
           <div className="mb-3 text-sm font-medium text-white">Icon</div>
 
           <div className="mb-3 inline-flex flex-wrap gap-0.5 rounded-lg border border-white/10 bg-white/5 p-0.5">

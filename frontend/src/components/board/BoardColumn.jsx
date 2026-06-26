@@ -38,6 +38,7 @@ export default function BoardColumn({ index, groups, editing, canManage = false,
             pageIconColor={pageIconColor}
             onOpenBookmark={handlers.onOpenBookmark}
             onEditBookmark={(b) => handlers.onEditBookmark(g, b)}
+            onChangeBookmarkIcon={(b) => handlers.onChangeBookmarkIcon(g, b)}
             onAddBookmark={handlers.onAddBookmark}
             onEditBookmarks={handlers.onEditBookmarks}
             onOpenAll={handlers.onOpenAll}
