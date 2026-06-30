@@ -15,10 +15,13 @@ import httpx
 
 from app.services.favicon import resolve_icon
 from app.services.icon_store import ingest_remote_icon
+from app.services.url_guard import UnsafeUrlError, validate_public_url
 
 FETCH_TIMEOUT = 8.0
 MAX_HTML_BYTES = 512 * 1024  # Only the <head> matters; cap the download.
+MAX_REDIRECTS = 5
 USER_AGENT = "Mozilla/5.0 (compatible; Startboard/1.0; +bookmark-preview)"
+INTERNAL_NOTE = "Live preview is unavailable for internal or private addresses."
 
 
 class _MetadataParser(HTMLParser):
@@ -84,41 +87,71 @@ def _normalize_url(url: str) -> str:
     return cleaned
 
 
-def fetch_link_metadata(url: str) -> dict:
-    """Return ``{title, description, icon_url}`` for *url* (best effort).
+def _fetch_html(client: httpx.Client, start_url: str) -> tuple[bytes | None, str]:
+    """Fetch HTML, following only redirects that pass the SSRF guard.
 
-    Network or parse failures degrade to a favicon-only result rather than
-    raising, so the modal always has something to show.
+    Returns ``(html_bytes_or_None, final_url)``. Redirects are followed manually
+    so each hop's target is re-validated before we connect to it.
+    """
+    current = validate_public_url(start_url)
+    for _ in range(MAX_REDIRECTS + 1):
+        with client.stream("GET", current, headers={"User-Agent": USER_AGENT}) as response:
+            if response.is_redirect:
+                location = response.headers.get("location")
+                if not location:
+                    return None, current
+                current = validate_public_url(urljoin(str(response.url), location))
+                continue
+            response.raise_for_status()
+            if "html" not in response.headers.get("content-type", "").lower():
+                return None, str(response.url)
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in response.iter_bytes():
+                chunks.append(chunk)
+                total += len(chunk)
+                if total >= MAX_HTML_BYTES:
+                    break
+            return b"".join(chunks), str(response.url)
+    return None, current
+
+
+def fetch_link_metadata(url: str) -> dict:
+    """Return ``{title, description, icon_url, note}`` for *url* (best effort).
+
+    User-controlled URLs are SSRF-guarded: the target (and every redirect hop)
+    must resolve to a public address, otherwise the fetch is refused and a
+    ``note`` explains why. Network or parse failures degrade to a favicon-only
+    result rather than raising, so the modal always has something to show.
     """
     normalized = _normalize_url(url)
     if not normalized:
         raise ValueError("A valid http(s) URL is required")
 
+    # Refuse internal/private targets up front — before any outbound request,
+    # including the favicon lookup — and tell the UI why.
+    try:
+        validate_public_url(normalized)
+    except UnsafeUrlError:
+        return {"title": "", "description": "", "icon_url": None, "note": INTERNAL_NOTE}
+
     fallback_icon = ingest_remote_icon(resolve_icon(normalized))
-    result = {"title": "", "description": "", "icon_url": fallback_icon}
+    result = {"title": "", "description": "", "icon_url": fallback_icon, "note": ""}
 
     try:
-        with httpx.Client(follow_redirects=True, timeout=FETCH_TIMEOUT) as client:
-            with client.stream("GET", normalized, headers={"User-Agent": USER_AGENT}) as response:
-                response.raise_for_status()
-                content_type = response.headers.get("content-type", "")
-                if "html" not in content_type.lower():
-                    return result
-                chunks: list[bytes] = []
-                total = 0
-                for chunk in response.iter_bytes():
-                    chunks.append(chunk)
-                    total += len(chunk)
-                    if total >= MAX_HTML_BYTES:
-                        break
-                final_url = str(response.url)
-        html = b"".join(chunks).decode("utf-8", errors="replace")
+        with httpx.Client(follow_redirects=False, timeout=FETCH_TIMEOUT) as client:
+            html_bytes, final_url = _fetch_html(client, normalized)
+    except UnsafeUrlError:
+        # A redirect pointed at a non-public address; keep the favicon and stop.
+        return result
     except Exception:
+        return result
+    if html_bytes is None:
         return result
 
     parser = _MetadataParser()
     try:
-        parser.feed(html)
+        parser.feed(html_bytes.decode("utf-8", errors="replace"))
     except Exception:
         return result
 
@@ -128,7 +161,12 @@ def fetch_link_metadata(url: str) -> dict:
     result["description"] = description[:500]
     if parser.icon_href:
         absolute_icon = urljoin(final_url, parser.icon_href)
-        ingested = ingest_remote_icon(absolute_icon)
-        if ingested:
-            result["icon_url"] = ingested
+        try:
+            validate_public_url(absolute_icon)
+        except UnsafeUrlError:
+            absolute_icon = ""
+        if absolute_icon:
+            ingested = ingest_remote_icon(absolute_icon)
+            if ingested:
+                result["icon_url"] = ingested
     return result

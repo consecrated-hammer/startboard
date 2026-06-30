@@ -739,7 +739,8 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
                 </div>
                 {meta?.title && <div className="truncate text-sm font-medium text-white">{meta.title}</div>}
                 {meta?.description && <div className="line-clamp-2 text-xs text-slate-400">{meta.description}</div>}
-                {!metaLoading && meta && !meta.title && !meta.description && (
+                {meta?.note && <div className="text-xs text-amber-300/90">{meta.note}</div>}
+                {!metaLoading && meta && !meta.note && !meta.title && !meta.description && (
                   <div className="text-xs text-slate-500">No title or description found — using the favicon.</div>
                 )}
               </div>
