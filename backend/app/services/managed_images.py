@@ -626,7 +626,7 @@ def _rotation_seed_bucket(page_id: int, interval_seconds: int) -> int:
     return bucket + page_id
 
 
-def select_page_background_image(conn, page) -> dict | None:
+def select_page_background_image(conn, page, advance: int = 0) -> dict | None:
     mode = page["bg_image_mode"] if "bg_image_mode" in page.keys() else "external"
     if mode == "managed_single":
         assigned = conn.execute(
@@ -678,9 +678,12 @@ def select_page_background_image(conn, page) -> dict | None:
         mode_name = page["bg_slideshow_advance_mode"] if "bg_slideshow_advance_mode" in page.keys() else "random"
         bucket = _rotation_seed_bucket(page["id"], interval)
         if mode_name == "sequential":
-            row = rows[bucket % len(rows)]
+            base = bucket
         else:
-            row = rows[hash(f"{page['id']}:{bucket}:{mode_name}") % len(rows)]
+            base = hash(f"{page['id']}:{bucket}:{mode_name}")
+        # `advance` lets a viewer step forward from whatever the time bucket would
+        # otherwise show (the "Show next image" action), staying in rotation order.
+        row = rows[(base + int(advance or 0)) % len(rows)]
         return image_row_to_dict(row)
     return None
 

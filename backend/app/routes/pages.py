@@ -174,7 +174,11 @@ def get_board(page_id: int, user: dict | None = Depends(get_current_user)):
 
 
 @router.get("/{page_id}/background")
-def get_page_background(page_id: int, user: dict | None = Depends(get_current_user)):
+def get_page_background(
+    page_id: int,
+    advance: int = Query(default=0),
+    user: dict | None = Depends(get_current_user),
+):
     with get_db_connection() as conn:
         page = _load_page_or_404(conn, page_id)
         if not can_view(conn, user, page):
@@ -182,7 +186,7 @@ def get_page_background(page_id: int, user: dict | None = Depends(get_current_us
         mode = page["bg_image_mode"] if "bg_image_mode" in page.keys() else "external"
         if mode == "external":
             raise HTTPException(status_code=404, detail="This page uses an external background URL")
-        image = select_page_background_image(conn, page)
+        image = select_page_background_image(conn, page, advance=advance)
         if not image:
             raise HTTPException(status_code=404, detail="No managed background image available")
         image_row = get_owner_image(conn, page["owner_id"], image["id"])

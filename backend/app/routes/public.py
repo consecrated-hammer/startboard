@@ -3,7 +3,7 @@
 Anyone with a page's share link can view it read-only. No auth, no edit.
 """
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import Response as RawResponse
 
 from app.db.database import get_db_connection
@@ -106,7 +106,7 @@ def view_shared(share_id: str):
 
 
 @router.get("/p/{share_id}/background")
-def shared_page_background(share_id: str):
+def shared_page_background(share_id: str, advance: int = Query(default=0)):
     with get_db_connection() as conn:
         page = get_page_by_share(conn, share_id)
         if page is None:
@@ -114,7 +114,7 @@ def shared_page_background(share_id: str):
         mode = page["bg_image_mode"] if "bg_image_mode" in page.keys() else "external"
         if mode == "external":
             raise HTTPException(status_code=404, detail="This page uses an external background URL")
-        image = select_page_background_image(conn, page)
+        image = select_page_background_image(conn, page, advance=advance)
         if not image:
             raise HTTPException(status_code=404, detail="No managed background image available")
         row = conn.execute("SELECT * FROM managed_images WHERE id = ?", (image["id"],)).fetchone()

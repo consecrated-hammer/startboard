@@ -4,12 +4,13 @@ import {
   DndContext, PointerSensor, closestCorners, useSensor, useSensors,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { Plus } from 'lucide-react'
+import { Image as ImageIcon, Plus } from 'lucide-react'
 import { bookmarksAPI, errorMessage, groupsAPI, pagesAPI } from '../services/api.js'
 import { offlineStore } from '../services/offline.js'
 import useColumnCount from '../hooks/useColumnCount.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useAppState } from '../context/AppStateContext.jsx'
+import ContextMenu from '../components/ContextMenu.jsx'
 import TopBar from '../components/board/TopBar.jsx'
 import BoardColumn from '../components/board/BoardColumn.jsx'
 import BookmarkModal from '../components/board/BookmarkModal.jsx'
@@ -92,18 +93,22 @@ function findBookmark(cols, bid) {
 
 const GROUP_ALIGN_JUSTIFY = { left: 'start', center: 'center', right: 'end' }
 
+function isSlideshowActive(page) {
+  return page?.bg_image_mode === 'managed_rotation' && Boolean(page?.bg_slideshow_enabled)
+}
+
 function slideshowIntervalMs(page) {
-  if (!page || page.bg_image_mode !== 'managed_rotation' || !page.bg_slideshow_enabled) return null
+  if (!isSlideshowActive(page)) return null
   const value = Math.max(1, Number(page.bg_slideshow_interval_value) || 30)
   return value * (page.bg_slideshow_interval_unit === 'minutes' ? 60_000 : 1_000)
 }
 
-function backgroundImageUrl(page, token = '') {
+function backgroundImageUrl(page, token = '', advance = 0) {
   const base = page?.background_url || page?.bg_image
   if (!base) return undefined
-  if (page?.bg_image_mode === 'managed_rotation' && page?.bg_slideshow_enabled) {
+  if (isSlideshowActive(page)) {
     const sep = String(base).includes('?') ? '&' : '?'
-    return `${base}${sep}sb_bg=${token || Date.now()}`
+    return `${base}${sep}sb_bg=${token || Date.now()}&advance=${advance}`
   }
   return base
 }
@@ -154,6 +159,8 @@ export default function BoardPage() {
   const [error, setError] = useState('')
   const [offlineSnapshot, setOfflineSnapshot] = useState(false)
   const [bgRefreshToken, setBgRefreshToken] = useState(() => Date.now())
+  const [bgAdvance, setBgAdvance] = useState(0)
+  const [boardMenu, setBoardMenu] = useState(null)
 
   const [bookmarkModal, setBookmarkModal] = useState(null)
   const [groupModal, setGroupModal] = useState(null)
@@ -220,6 +227,7 @@ export default function BoardPage() {
       : data
     setBoard(nextBoard)
     setGroups(data.groups)
+    setBgAdvance(0)
     setColumns(
       buildColumns(
         data.groups,
@@ -722,6 +730,18 @@ export default function BoardPage() {
   }
   const openBookmarkManager = (group) => setBookmarkManagerGroup(group)
 
+  // Right-clicking blank board space while a slideshow background is active offers
+  // a manual "Show next image"; otherwise the native context menu is left alone.
+  const onBoardContextMenu = (event) => {
+    if (!isSlideshowActive(board?.page)) return
+    event.preventDefault()
+    setBoardMenu({ x: event.clientX, y: event.clientY })
+  }
+  const showNextBackground = () => {
+    setBgAdvance((value) => value + 1)
+    setBgRefreshToken(Date.now())
+  }
+
   const submitMoveGroup = async () => {
     if (!moveGroupModal?.destinationPageId) return
     setMoveGroupBusy(true)
@@ -811,9 +831,10 @@ export default function BoardPage() {
       ) : (
         <main
           className="flex-1 overflow-auto p-4 sm:p-5"
+          onContextMenu={onBoardContextMenu}
           style={{
             backgroundColor: board.page.bg_image_mode === 'solid' ? (board.page.bg_color || undefined) : undefined,
-            backgroundImage: backgroundImageUrl(board.page, bgRefreshToken) ? `url(${backgroundImageUrl(board.page, bgRefreshToken)})` : undefined,
+            backgroundImage: backgroundImageUrl(board.page, bgRefreshToken, bgAdvance) ? `url(${backgroundImageUrl(board.page, bgRefreshToken, bgAdvance)})` : undefined,
             backgroundPosition: backgroundPositionForPage(board.page.bg_image_position),
             backgroundRepeat: 'no-repeat',
             backgroundSize: board.page.bg_image_fit === 'fill'
@@ -911,6 +932,18 @@ export default function BoardPage() {
           </DndContext>
         </main>
       )}
+
+      <ContextMenu
+        open={!!boardMenu}
+        position={boardMenu}
+        items={boardMenu ? [{
+          key: 'next-bg',
+          label: 'Show next image',
+          icon: ImageIcon,
+          onClick: showNextBackground,
+        }] : []}
+        onClose={() => setBoardMenu(null)}
+      />
 
       <SearchPalette
         open={searchOpen}

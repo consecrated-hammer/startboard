@@ -147,6 +147,8 @@ export const groupsAPI = {
 }
 
 export const bookmarksAPI = {
+  metadata: (url, config = {}) =>
+    client.get('/bookmarks/metadata', { params: { url }, ...config }).then((r) => r.data),
   create: (groupId, data) =>
     client.post(`/groups/${groupId}/bookmarks`, data).then((r) => r.data),
   update: (bookmarkId, patch) =>
