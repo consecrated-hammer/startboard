@@ -10,14 +10,18 @@ import re
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import httpx
-
 from app.config import settings
+from app.services.url_guard import (
+    UnsafeUrlError,
+    fetch_public_url,
+    resolve_public_redirect,
+)
 
 LOCAL_ICON_PREFIX = "/api/icons/"
 TINTABLE_QUERY_KEY = "sb_tintable"
 MAX_ICON_BYTES = 2 * 1024 * 1024
 DEFAULT_TIMEOUT = 10.0
+MAX_REDIRECTS = 5
 ALLOWED_UPLOAD_EXTS = {".svg", ".png", ".ico", ".webp", ".jpg", ".jpeg", ".gif"}
 
 CONTENT_TYPE_TO_EXT = {
@@ -99,15 +103,29 @@ def _guess_extension(content_type: str | None, source_url: str) -> str:
 
 
 def _download_icon(source_url: str) -> tuple[bytes, str]:
-    with httpx.Client(follow_redirects=True, timeout=DEFAULT_TIMEOUT) as client:
-        response = client.get(source_url)
-        response.raise_for_status()
-        data = response.content
+    current = source_url
+    for _ in range(MAX_REDIRECTS + 1):
+        response = fetch_public_url(
+            current,
+            timeout=DEFAULT_TIMEOUT,
+            max_bytes=MAX_ICON_BYTES,
+            headers={"Accept": "image/*,*/*;q=0.1"},
+        )
+        if response.is_redirect:
+            location = response.headers.get("location")
+            if not location:
+                raise ValueError("Redirect response missing location")
+            current = resolve_public_redirect(current, location)
+            continue
+        if response.status >= 400:
+            raise ValueError("Icon download failed")
+        data = response.body
         if not data:
             raise ValueError("Downloaded icon is empty")
         if len(data) > MAX_ICON_BYTES:
             raise ValueError("Downloaded icon exceeds size limit")
-        return data, _guess_extension(response.headers.get("content-type"), source_url)
+        return data, _guess_extension(response.headers.get("content-type"), current)
+    raise ValueError("Too many redirects")
 
 
 def _format_limit(limit_bytes: int) -> str:
@@ -136,7 +154,9 @@ def _store_icon_bytes(data: bytes, ext: str) -> str:
         raise ValueError("Unsupported icon format")
     size_limit = _upload_limits().get(normalized_ext, MAX_ICON_BYTES)
     if len(data) > size_limit:
-        raise ValueError(f"{normalized_ext[1:].upper()} icon exceeds size limit ({_format_limit(size_limit)} max)")
+        raise ValueError(
+            f"{normalized_ext[1:].upper()} icon exceeds size limit ({_format_limit(size_limit)} max)"
+        )
     digest = hashlib.sha256(data).hexdigest()[:24]
     filename = f"{digest}{normalized_ext}"
     destination = icon_dir() / filename
@@ -145,7 +165,9 @@ def _store_icon_bytes(data: bytes, ext: str) -> str:
     return public_icon_path(filename)
 
 
-def ingest_uploaded_icon(data: bytes, filename: str | None = None, content_type: str | None = None) -> str:
+def ingest_uploaded_icon(
+    data: bytes, filename: str | None = None, content_type: str | None = None
+) -> str:
     ext = ""
     if content_type:
         ext = CONTENT_TYPE_TO_EXT.get(content_type.split(";", 1)[0].strip().lower(), "")
@@ -180,6 +202,8 @@ def ingest_remote_icon(source_url: str | None) -> str | None:
         if tintable and ext == ".svg":
             return _append_query_value(stored, TINTABLE_QUERY_KEY, "1")
         return stored
+    except UnsafeUrlError:
+        return None
     except Exception:
         return cleaned_source_url
 
@@ -190,21 +214,53 @@ def recolor_svg_bytes(data: bytes, color: str) -> bytes:
     if not cleaned_color:
         return data
 
-    svg = re.sub(r'fill="(?!none\b|currentColor\b|url\()[^"]*"', 'fill="currentColor"', svg, flags=re.IGNORECASE)
-    svg = re.sub(r"fill='(?!none\b|currentColor\b|url\()[^']*'", "fill='currentColor'", svg, flags=re.IGNORECASE)
-    svg = re.sub(r'stroke="(?!none\b|currentColor\b|url\()[^"]*"', 'stroke="currentColor"', svg, flags=re.IGNORECASE)
-    svg = re.sub(r"stroke='(?!none\b|currentColor\b|url\()[^']*'", "stroke='currentColor'", svg, flags=re.IGNORECASE)
-    svg = re.sub(r"fill\s*:\s*(?!none\b|currentColor\b|url\()[^;\"']+", "fill:currentColor", svg, flags=re.IGNORECASE)
-    svg = re.sub(r"stroke\s*:\s*(?!none\b|currentColor\b|url\()[^;\"']+", "stroke:currentColor", svg, flags=re.IGNORECASE)
+    svg = re.sub(
+        r'fill="(?!none\b|currentColor\b|url\()[^"]*"',
+        'fill="currentColor"',
+        svg,
+        flags=re.IGNORECASE,
+    )
+    svg = re.sub(
+        r"fill='(?!none\b|currentColor\b|url\()[^']*'",
+        "fill='currentColor'",
+        svg,
+        flags=re.IGNORECASE,
+    )
+    svg = re.sub(
+        r'stroke="(?!none\b|currentColor\b|url\()[^"]*"',
+        'stroke="currentColor"',
+        svg,
+        flags=re.IGNORECASE,
+    )
+    svg = re.sub(
+        r"stroke='(?!none\b|currentColor\b|url\()[^']*'",
+        "stroke='currentColor'",
+        svg,
+        flags=re.IGNORECASE,
+    )
+    svg = re.sub(
+        r"fill\s*:\s*(?!none\b|currentColor\b|url\()[^;\"']+",
+        "fill:currentColor",
+        svg,
+        flags=re.IGNORECASE,
+    )
+    svg = re.sub(
+        r"stroke\s*:\s*(?!none\b|currentColor\b|url\()[^;\"']+",
+        "stroke:currentColor",
+        svg,
+        flags=re.IGNORECASE,
+    )
     style_block = (
-        f'<style>'
-        f'svg{{color:{cleaned_color};}}'
-        f'[fill]:not([fill=\"none\"]):not([fill=\"currentColor\"]){{fill:currentColor!important;}}'
-        f'[stroke]:not([stroke=\"none\"]):not([stroke=\"currentColor\"]){{stroke:currentColor!important;}}'
-        f'path:not([fill]),circle:not([fill]),rect:not([fill]),polygon:not([fill]),ellipse:not([fill]){{fill:currentColor!important;}}'
-        f'</style>'
+        f"<style>"
+        f"svg{{color:{cleaned_color};}}"
+        f'[fill]:not([fill="none"]):not([fill="currentColor"]){{fill:currentColor!important;}}'
+        f'[stroke]:not([stroke="none"]):not([stroke="currentColor"]){{stroke:currentColor!important;}}'
+        f"path:not([fill]),circle:not([fill]),rect:not([fill]),polygon:not([fill]),ellipse:not([fill]){{fill:currentColor!important;}}"
+        f"</style>"
     )
     if "<svg" not in svg:
         return data
-    svg = re.sub(r"(<svg\b[^>]*>)", rf"\1{style_block}", svg, count=1, flags=re.IGNORECASE)
+    svg = re.sub(
+        r"(<svg\b[^>]*>)", rf"\1{style_block}", svg, count=1, flags=re.IGNORECASE
+    )
     return svg.encode("utf-8")

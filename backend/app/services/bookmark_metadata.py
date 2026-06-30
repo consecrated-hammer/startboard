@@ -11,11 +11,14 @@ from html import unescape
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
-import httpx
-
 from app.services.favicon import resolve_icon
 from app.services.icon_store import ingest_remote_icon
-from app.services.url_guard import UnsafeUrlError, validate_public_url
+from app.services.url_guard import (
+    UnsafeUrlError,
+    fetch_public_url,
+    resolve_public_redirect,
+    validate_public_url,
+)
 
 FETCH_TIMEOUT = 8.0
 MAX_HTML_BYTES = 512 * 1024  # Only the <head> matters; cap the download.
@@ -87,7 +90,7 @@ def _normalize_url(url: str) -> str:
     return cleaned
 
 
-def _fetch_html(client: httpx.Client, start_url: str) -> tuple[bytes | None, str]:
+def _fetch_html(start_url: str) -> tuple[bytes | None, str]:
     """Fetch HTML, following only redirects that pass the SSRF guard.
 
     Returns ``(html_bytes_or_None, final_url)``. Redirects are followed manually
@@ -95,24 +98,26 @@ def _fetch_html(client: httpx.Client, start_url: str) -> tuple[bytes | None, str
     """
     current = validate_public_url(start_url)
     for _ in range(MAX_REDIRECTS + 1):
-        with client.stream("GET", current, headers={"User-Agent": USER_AGENT}) as response:
-            if response.is_redirect:
-                location = response.headers.get("location")
-                if not location:
-                    return None, current
-                current = validate_public_url(urljoin(str(response.url), location))
-                continue
-            response.raise_for_status()
-            if "html" not in response.headers.get("content-type", "").lower():
-                return None, str(response.url)
-            chunks: list[bytes] = []
-            total = 0
-            for chunk in response.iter_bytes():
-                chunks.append(chunk)
-                total += len(chunk)
-                if total >= MAX_HTML_BYTES:
-                    break
-            return b"".join(chunks), str(response.url)
+        response = fetch_public_url(
+            current,
+            timeout=FETCH_TIMEOUT,
+            max_bytes=MAX_HTML_BYTES,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml",
+            },
+        )
+        if response.is_redirect:
+            location = response.headers.get("location")
+            if not location:
+                return None, current
+            current = resolve_public_redirect(current, location)
+            continue
+        if response.status >= 400:
+            return None, current
+        if "html" not in response.headers.get("content-type", "").lower():
+            return None, current
+        return response.body, current
     return None, current
 
 
@@ -139,8 +144,7 @@ def fetch_link_metadata(url: str) -> dict:
     result = {"title": "", "description": "", "icon_url": fallback_icon, "note": ""}
 
     try:
-        with httpx.Client(follow_redirects=False, timeout=FETCH_TIMEOUT) as client:
-            html_bytes, final_url = _fetch_html(client, normalized)
+        html_bytes, final_url = _fetch_html(normalized)
     except UnsafeUrlError:
         # A redirect pointed at a non-public address; keep the favicon and stop.
         return result
