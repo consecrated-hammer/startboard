@@ -5,8 +5,7 @@ uvicorn[standard]==0.49.0
 pydantic==2.13.4
 pydantic-settings==2.14.2
 python-dotenv==1.2.2
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1   # passlib 1.7.4 works with bcrypt 4.0.x; bcrypt 5.0.0 breaks password hashing during backend init
+bcrypt==5.0.0   # used directly via app.utils.security (passlib dropped: unmaintained, breaks on bcrypt 5)
 python-multipart==0.0.32
 httpx==0.28.1
 PyYAML==6.0.3

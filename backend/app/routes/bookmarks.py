@@ -1,6 +1,6 @@
 """Bookmark routes."""
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
 from app.db.database import get_db_connection
@@ -8,6 +8,7 @@ from app.deps import require_user
 from app.models.schemas import BookmarkCreate, BookmarkShareCreate, BookmarkUpdate
 from app.routes._helpers import bookmark_to_dict, now_iso
 from app.services.bookmark_links import is_launchable_url
+from app.services.bookmark_metadata import fetch_link_metadata
 from app.services.bookmark_ops import create_bookmark_in_group
 from app.services.favicon import resolve_icon
 from app.services.icon_store import ingest_remote_icon, ingest_uploaded_icon, local_icon_file, recolor_svg_bytes
@@ -58,6 +59,19 @@ def render_local_svg_icon(filename: str, color: str):
         media_type="image/svg+xml",
         headers={"Cache-Control": "public, max-age=3600"},
     )
+
+
+@router.get("/bookmarks/metadata")
+def bookmark_metadata(
+    url: str = Query(min_length=1, max_length=2048),
+    user: dict = Depends(require_user),
+):
+    """Preview a link's title, description, and favicon before saving."""
+    del user
+    try:
+        return fetch_link_metadata(url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/groups/{group_id}/bookmarks", status_code=201)

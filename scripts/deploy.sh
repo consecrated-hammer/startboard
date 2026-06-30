@@ -11,6 +11,32 @@
 #   ./scripts/deploy.sh --import FILE --owner USER [--page NAME]   # import a homepage bookmarks.yaml
 #
 # Flags combine, e.g.:  ./scripts/deploy.sh --dev --seed kevin
+#
+# ── Host notes (BatServer / start.batserver.au) ──────────────────────────────
+# The PROD path below assumes this repo owns the running container. On BatServer
+# it does NOT: the live `startboard` container is run by the central aggregated
+# compose at /mnt/docker/config/dockerconfigs/docker-compose.yml (compose
+# project "config"), which pins ghcr.io/consecrated-hammer/startboard:latest
+# with `pull_policy: always`. Three consequences:
+#   1. Running this script's prod path collides on container_name "startboard".
+#      Deploy the running container from the CENTRAL compose, not from here.
+#   2. BuildKit can't resolve DNS on this host (IPv6-only to pypi/npm), so
+#      `docker build` fails. Build with --network=host so RUN steps use the
+#      working host network.
+#   3. To run a LOCAL build (vs. the published image) you must pass
+#      `--pull never`, else `pull_policy: always` pulls the older registry image
+#      over your build. Local deploys are temporary — the next full
+#      `docker compose up` or CI publish replaces them.
+# Manual local-deploy sequence used on BatServer:
+#   bash ./scripts/package-extension.sh
+#   set -a; source ./.env; set +a
+#   docker build --network=host -f Dockerfile \
+#     -t ghcr.io/consecrated-hammer/startboard:latest \
+#     --build-arg VITE_API_BASE_URL=/api \
+#     --build-arg "VITE_APP_VERSION=${VITE_APP_VERSION:-dev}" .
+#   (cd /mnt/docker/config/dockerconfigs && docker compose up -d --pull never startboard)
+# The permanent path is to merge to main so CI publishes :latest to ghcr.
+# ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

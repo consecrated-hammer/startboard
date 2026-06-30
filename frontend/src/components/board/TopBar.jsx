@@ -225,7 +225,10 @@ export default function TopBar({
   const { settings } = useAppState()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const [tabMenu, setTabMenu] = useState(null)
+  // Drag-to-reorder tabs is an edit-mode affordance; the right-click "Move" menu
+  // items work any time there's more than one page the user can edit.
   const reorderable = editing && canEdit && pages.length > 1
+  const canReorder = canEdit && pages.length > 1
 
   const handlePageDragEnd = (event) => {
     const { active, over } = event
@@ -291,7 +294,7 @@ export default function TopBar({
         })
       }
     }
-    if (reorderable) {
+    if (canReorder) {
       items.push(
         { key: 'left', label: 'Move left', glyph: '←', disabled: atStart, onClick: () => movePage(tabMenu.page, 'left') },
         { key: 'right', label: 'Move right', glyph: '→', disabled: atEnd, onClick: () => movePage(tabMenu.page, 'right') },

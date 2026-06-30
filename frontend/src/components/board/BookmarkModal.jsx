@@ -271,6 +271,13 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
   const [description, setDescription] = useState(bookmark?.description || '')
   const [dockerRef, setDockerRef] = useState(bookmark?.docker_ref || '')
   const [groupId, setGroupId] = useState(String(bookmark?.group_id || currentGroupId || ''))
+  // Live link preview (create mode): fetch the site's title/description/favicon
+  // shortly after typing so the user sees what will be saved. Auto-fill only
+  // untouched fields so manual edits are never clobbered.
+  const [meta, setMeta] = useState(null)
+  const [metaLoading, setMetaLoading] = useState(false)
+  const titleTouchedRef = useRef(Boolean(bookmark?.title))
+  const descTouchedRef = useRef(bookmark?.description != null)
 
   // When the target page changes, load its groups and select the first one. The
   // current page reuses the groups already in memory.
@@ -496,6 +503,38 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
     return () => controller.abort()
   }, [iconSource, libraryProvider, dashLoaded, dashIndexUrl])
 
+  // Debounced live metadata lookup. Create mode only — editing keeps the saved
+  // values. A short delay after each keypress avoids a request per character.
+  useEffect(() => {
+    if (editing) return undefined
+    const candidate = url.trim()
+    if (candidate.length < 4 || !candidate.includes('.')) {
+      // Clear any stale preview once the URL is no longer fetchable.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMeta(null)
+      return undefined
+    }
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      setMetaLoading(true)
+      bookmarksAPI.metadata(candidate, { signal: controller.signal })
+        .then((data) => {
+          setMeta(data)
+          if (!titleTouchedRef.current && data.title) setTitle(data.title)
+          if (!descTouchedRef.current && data.description) setDescription(data.description)
+        })
+        .catch((err) => {
+          if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') return
+          setMeta(null)
+        })
+        .finally(() => setMetaLoading(false))
+    }, 550)
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [url, editing])
+
   const save = async () => {
     if (!url.trim()) {
       setError('A URL is required')
@@ -526,6 +565,9 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
     }
     setBusy(true)
     setError('')
+    // On create with the auto source, save the favicon previewed from the site so
+    // the stored icon matches what the user just saw; null falls back to lookup.
+    const autoCreateIcon = !editing && iconSource === 'auto' ? (meta?.icon_url || null) : null
     try {
       await onSave({
         group_id: groupId ? Number(groupId) : undefined,
@@ -534,7 +576,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
         title_color: titleColor.trim(),
         icon_color: iconColor.trim(),
         description: description.trim() || null,
-        icon_url: editing && !iconSourceDirty ? (bookmark?.icon_url ?? null) : (resolvedIconUrl || null),
+        icon_url: editing && !iconSourceDirty ? (bookmark?.icon_url ?? null) : (resolvedIconUrl || autoCreateIcon || null),
         docker_ref: dockerRef.trim() || null,
       })
       onClose()
@@ -687,8 +729,25 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
           <Labeled text="URL">
             <input className={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" autoFocus={!focusIcon} />
           </Labeled>
+          {!editing && (metaLoading || meta) && (
+            <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-slate-900/40 px-3 py-2.5">
+              <Favicon iconUrl={meta?.icon_url || ''} title={meta?.title || title || url} size={28} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wide text-slate-400">From the site</span>
+                  {metaLoading && <Spinner className="h-3 w-3" />}
+                </div>
+                {meta?.title && <div className="truncate text-sm font-medium text-white">{meta.title}</div>}
+                {meta?.description && <div className="line-clamp-2 text-xs text-slate-400">{meta.description}</div>}
+                {meta?.note && <div className="text-xs text-amber-300/90">{meta.note}</div>}
+                {!metaLoading && meta && !meta.note && !meta.title && !meta.description && (
+                  <div className="text-xs text-slate-500">No title or description found — using the favicon.</div>
+                )}
+              </div>
+            </div>
+          )}
           <Labeled text="Title">
-            <input className={input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the site's domain" />
+            <input className={input} value={title} onChange={(e) => { titleTouchedRef.current = true; setTitle(e.target.value) }} placeholder="Defaults to the site's domain" />
           </Labeled>
           <Labeled text="Title colour (optional)">
             <ColorField value={titleColor} onChange={setTitleColor} />
@@ -700,7 +759,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
           </Labeled>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <Labeled text="Description (optional)">
-              <input className={input} value={description} onChange={(e) => setDescription(e.target.value)} />
+              <input className={input} value={description} onChange={(e) => { descTouchedRef.current = true; setDescription(e.target.value) }} />
             </Labeled>
             <Labeled text="Docker reference (optional)">
               <input className={input} value={dockerRef} onChange={(e) => setDockerRef(e.target.value)} placeholder="e.g. beszel" />
