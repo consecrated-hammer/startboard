@@ -514,7 +514,7 @@ export default function BoardPage() {
         const loc = findGroup(prev, numId(active.id))
         if (!loc) return prev
         const [ci, gi] = loc
-        let toCi = ci
+        let toCi
         if (overType === 'group') { const o = findGroup(prev, numId(over.id)); toCi = o ? o[0] : ci }
         else if (overType === 'column') toCi = over.data.current.index
         else if (overType === 'bookmark') { const o = findBookmark(prev, numId(over.id)); toCi = o ? o[0] : ci }
