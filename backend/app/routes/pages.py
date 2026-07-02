@@ -84,11 +84,11 @@ def list_pages(user: dict = Depends(require_user)):
             """
             SELECT DISTINCT p.* FROM pages p
             LEFT JOIN page_permissions pp ON pp.page_id = p.id AND pp.user_id = ?
-            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL OR ? = 'admin')
+            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL)
               AND p.is_archived = 0
             ORDER BY p.position, p.id
             """,
-            (user["id"], user["id"], user["role"]),
+            (user["id"], user["id"]),
         ).fetchall()
         return [page_to_dict(p, user, can_edit(conn, user, p)) for p in rows]
 
@@ -100,11 +100,11 @@ def list_archived_pages(user: dict = Depends(require_user)):
             """
             SELECT DISTINCT p.* FROM pages p
             LEFT JOIN page_permissions pp ON pp.page_id = p.id AND pp.user_id = ?
-            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL OR ? = 'admin')
+            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL)
               AND p.is_archived = 1
             ORDER BY p.updated_at DESC, p.id DESC
             """,
-            (user["id"], user["id"], user["role"]),
+            (user["id"], user["id"]),
         ).fetchall()
         return [page_to_dict(p, user, can_edit(conn, user, p)) for p in rows]
 

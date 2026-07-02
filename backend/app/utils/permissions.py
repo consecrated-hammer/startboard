@@ -1,9 +1,14 @@
 """Page access-control helpers.
 
 Rules (see PLAN.md §3):
-- can_view: admin OR owner OR page is shared OR an explicit grant row exists.
-- can_edit: signed-in AND (admin OR owner OR grant.can_edit). Anonymous never edits.
+- can_view: owner OR page is shared OR an explicit grant row exists.
+- can_edit: signed-in AND (owner OR grant.can_edit). Anonymous never edits.
 Anonymous public access is only via share_id resolution (routes/public.py).
+
+The admin role does NOT grant implicit view/edit on pages it does not own;
+admins are subject to the same visibility rules as any user. Explicit
+site-administration powers (delete, manage sharing/invites) live in
+routes/pages.py and keep their own admin checks.
 """
 
 import sqlite3
@@ -32,7 +37,7 @@ def can_view(conn: sqlite3.Connection, user: dict | None, page: sqlite3.Row) -> 
         return True
     if user is None:
         return False
-    if user["role"] == "admin" or page["owner_id"] == user["id"]:
+    if page["owner_id"] == user["id"]:
         return True
     return _grant(conn, page["id"], user["id"]) is not None
 
@@ -40,7 +45,7 @@ def can_view(conn: sqlite3.Connection, user: dict | None, page: sqlite3.Row) -> 
 def can_edit(conn: sqlite3.Connection, user: dict | None, page: sqlite3.Row) -> bool:
     if user is None:
         return False
-    if user["role"] == "admin" or page["owner_id"] == user["id"]:
+    if page["owner_id"] == user["id"]:
         return True
     grant = _grant(conn, page["id"], user["id"])
     return grant is not None and bool(grant["can_edit"])
