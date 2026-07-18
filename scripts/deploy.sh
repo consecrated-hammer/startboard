@@ -15,7 +15,7 @@
 # ── Host notes (BatServer / start.batserver.au) ──────────────────────────────
 # The PROD path below assumes this repo owns the running container. On BatServer
 # it does NOT: the live `startboard` container is run by the central aggregated
-# compose at /mnt/docker/config/dockerconfigs/docker-compose.yml (compose
+# compose at /mnt/docker/infra/config/dockerconfigs/docker-compose.yml (compose
 # project "config"), which pins ghcr.io/consecrated-hammer/startboard:latest
 # with `pull_policy: always`. Three consequences:
 #   1. Running this script's prod path collides on container_name "startboard".
@@ -34,7 +34,7 @@
 #     -t ghcr.io/consecrated-hammer/startboard:latest \
 #     --build-arg VITE_API_BASE_URL=/api \
 #     --build-arg "VITE_APP_VERSION=${VITE_APP_VERSION:-dev}" .
-#   (cd /mnt/docker/config/dockerconfigs && docker compose up -d --pull never startboard)
+#   (cd /mnt/docker/infra/config/dockerconfigs && docker compose up -d --pull never startboard)
 # The permanent path is to merge to main so CI publishes :latest to ghcr.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail

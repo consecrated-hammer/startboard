@@ -2,7 +2,7 @@
 
 Usage:
     python -m scripts.import_bunella \
-        --bunella-root /mnt/docker/config/dockerconfigs/homepage-bunella \
+        --bunella-root /mnt/docker/state/app-data/homepage-bunella \
         --target-username bianca \
         --page-title Bianca
 """

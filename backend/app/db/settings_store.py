@@ -11,7 +11,7 @@ APP_DEFAULTS = {
     "icon_treatment": "default",
     "icon_color": "",
     "docker_integration_enabled": "false",
-    "docker_api_endpoint": "unix:///var/run/docker.sock",
+    "docker_api_endpoint": "http://dockerproxy-readonly:2375",
     "docker_status_poll_seconds": "30",
 }
 
@@ -53,9 +53,13 @@ def get_docker_integration_settings() -> dict:
         poll_seconds = max(5, min(3600, int(poll_raw)))
     except (TypeError, ValueError):
         poll_seconds = int(APP_DEFAULTS["docker_status_poll_seconds"])
+    endpoint = settings.get("docker_api_endpoint", APP_DEFAULTS["docker_api_endpoint"]).strip()
+    # Migrate the former direct socket default without preserving host authority.
+    if endpoint == "unix:///var/run/docker.sock":
+        endpoint = APP_DEFAULTS["docker_api_endpoint"]
     return {
         "enabled": settings.get("docker_integration_enabled", "false") == "true",
-        "api_endpoint": settings.get("docker_api_endpoint", APP_DEFAULTS["docker_api_endpoint"]).strip(),
+        "api_endpoint": endpoint,
         "poll_seconds": poll_seconds,
     }
 
