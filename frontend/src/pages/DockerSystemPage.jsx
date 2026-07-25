@@ -6,8 +6,29 @@ import Favicon from '../components/Favicon.jsx'
 import Spinner from '../components/Spinner.jsx'
 import TopBar from '../components/board/TopBar.jsx'
 import { btnPrimary, btnSecondary, input, label } from '../components/ui.js'
+import useColumnCount from '../hooks/useColumnCount.js'
 
 const SYSTEM_PAGE_ID = 'docker-system'
+const GROUP_ALIGN_JUSTIFY = { left: 'start', center: 'center', right: 'end' }
+
+function estimatedGroupHeight(group) {
+  return 1 + (group.workloads?.length || 0)
+}
+
+function buildColumns(groups, count, balanced) {
+  const columns = Array.from({ length: Math.max(1, count) }, () => [])
+  if (!balanced) {
+    groups.forEach((group, index) => columns[index % columns.length].push(group))
+    return columns
+  }
+  const heights = Array.from({ length: columns.length }, () => 0)
+  groups.forEach((group) => {
+    const target = heights.reduce((best, height, index) => (height < heights[best] ? index : best), 0)
+    columns[target].push(group)
+    heights[target] += estimatedGroupHeight(group)
+  })
+  return columns
+}
 
 const STATUS_META = {
   healthy: { label: 'Healthy', tone: 'text-emerald-400', Icon: CheckCircle2 },
@@ -104,6 +125,7 @@ export default function DockerSystemPage() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [pages, setPages] = useState([])
+  const [templatePage, setTemplatePage] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -116,9 +138,14 @@ export default function DockerSystemPage() {
     else setLoading(true)
     setError('')
     try {
-      const [systemPage, boardPages] = await Promise.all([adminAPI.dockerSystemPage(), pagesAPI.list()])
+      const [systemPage, boardPages, template] = await Promise.all([
+        adminAPI.dockerSystemPage(),
+        pagesAPI.list(),
+        pagesAPI.get(1).catch(() => null),
+      ])
       setData(systemPage)
       setPages(boardPages)
+      setTemplatePage(template?.page || null)
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -138,16 +165,18 @@ export default function DockerSystemPage() {
     { id: SYSTEM_PAGE_ID, title: 'Docker services', is_system_page: true },
   ], [pages])
   const systemPage = useMemo(() => ({
+    ...templatePage,
     id: SYSTEM_PAGE_ID,
     title: 'Docker services',
-    max_cols: 0,
-    card_gap: 12,
-    card_gap_x: 16,
-    bookmark_gap: 2,
-    card_max_width: 0,
-    group_align: 'center',
     open_new_tab: true,
-  }), [])
+  }), [templatePage])
+  const responsiveCols = useColumnCount(systemPage.card_max_width ?? 0, systemPage.card_gap_x ?? 16)
+  const colCount = systemPage.max_cols > 0 ? Math.min(responsiveCols, systemPage.max_cols) : responsiveCols
+  const displayColumns = useMemo(() => buildColumns(
+    data?.groups || [],
+    colCount,
+    systemPage.layout_mode === 'balanced' || systemPage.auto_balance,
+  ), [data?.groups, colCount, systemPage.layout_mode, systemPage.auto_balance])
 
   const copy = async (groupId) => {
     if (!copying) return
@@ -165,7 +194,15 @@ export default function DockerSystemPage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="flex h-full flex-col"
+      style={{
+        '--color-accent': systemPage.accent || undefined,
+        '--color-accent-dark': systemPage.accent
+          ? `color-mix(in oklab, ${systemPage.accent} 82%, black)`
+          : undefined,
+      }}
+    >
       <TopBar
         pages={navPages}
         currentPageId={SYSTEM_PAGE_ID}
@@ -183,7 +220,18 @@ export default function DockerSystemPage() {
         onCopyPageShareLink={() => {}}
         onAddGroup={() => {}}
       />
-      <main className="flex-1 overflow-auto p-4 sm:p-5">
+      <main
+        className="flex-1 overflow-auto p-4 sm:p-5"
+        style={{
+          backgroundColor: systemPage.bg_image_mode === 'solid' ? (systemPage.bg_color || undefined) : undefined,
+          backgroundImage: systemPage.background_url || systemPage.bg_image ? `url(${systemPage.background_url || systemPage.bg_image})` : undefined,
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: systemPage.bg_image_fit === 'fill'
+            ? '100% 100%'
+            : (systemPage.bg_image_fit === 'contain' || systemPage.bg_image_fit === 'scale-down' ? 'contain' : 'cover'),
+        }}
+      >
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -205,17 +253,29 @@ export default function DockerSystemPage() {
         {loading ? (
           <div className="flex justify-center py-20"><Spinner /></div>
         ) : data && (
-          <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {data.groups.map((group) => (
-              <section key={group.title} className="flex w-full flex-col rounded-2xl border border-white/10 bg-white/3">
-                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-                  <Favicon title={group.title} size={18} />
-                  <h2 className="flex-1 truncate text-sm font-semibold uppercase tracking-wide text-slate-300">{group.title}</h2>
-                </div>
-                <div className="space-y-1 p-2">
-                  {group.workloads.map((workload) => <WorkloadCard key={workload.key} workload={workload} onCopy={setCopying} />)}
-                </div>
-              </section>
+          <div
+            className="grid items-start"
+            style={{
+              gridTemplateColumns: `repeat(${displayColumns.length || colCount}, minmax(0, ${systemPage.card_max_width ? `${systemPage.card_max_width}px` : '1fr'}))`,
+              columnGap: `${systemPage.card_gap_x ?? 16}px`,
+              rowGap: `${systemPage.card_gap ?? 12}px`,
+              justifyContent: GROUP_ALIGN_JUSTIFY[systemPage.group_align] || 'center',
+            }}
+          >
+            {displayColumns.map((column, index) => (
+              <div key={index} className="flex min-w-0 flex-col" style={{ gap: `${systemPage.card_gap ?? 12}px` }}>
+                {column.map((group) => (
+                  <section key={group.title} className="flex w-full flex-col rounded-2xl border border-white/10 bg-white/3">
+                    <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+                      <Favicon title={group.title} size={18} color={systemPage.icon_color || ''} />
+                      <h2 className="flex-1 truncate text-sm font-semibold uppercase tracking-wide text-slate-300">{group.title}</h2>
+                    </div>
+                    <div className="space-y-1 p-2">
+                      {group.workloads.map((workload) => <WorkloadCard key={workload.key} workload={workload} onCopy={setCopying} />)}
+                    </div>
+                  </section>
+                ))}
+              </div>
             ))}
           </div>
         )}
