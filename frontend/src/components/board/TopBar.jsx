@@ -225,30 +225,32 @@ export default function TopBar({
   const { settings } = useAppState()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const [tabMenu, setTabMenu] = useState(null)
+  const userPages = pages.filter((page) => !page.is_system_page)
+  const systemPages = pages.filter((page) => page.is_system_page)
   // Drag-to-reorder tabs is an edit-mode affordance; the right-click "Move" menu
   // items work any time there's more than one page the user can edit.
-  const reorderable = editing && canEdit && pages.length > 1
-  const canReorder = canEdit && pages.length > 1
+  const reorderable = editing && canEdit && userPages.length > 1
+  const canReorder = canEdit && userPages.length > 1
 
   const handlePageDragEnd = (event) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const from = pages.findIndex((p) => p.id === active.id)
-    const to = pages.findIndex((p) => p.id === over.id)
+    const from = userPages.findIndex((p) => p.id === active.id)
+    const to = userPages.findIndex((p) => p.id === over.id)
     if (from < 0 || to < 0) return
-    onReorderPages?.(arrayMove(pages, from, to).map((p) => p.id))
+    onReorderPages?.(arrayMove(userPages, from, to).map((p) => p.id))
   }
 
   const movePage = (page, where) => {
-    const from = pages.findIndex((p) => p.id === page.id)
+    const from = userPages.findIndex((p) => p.id === page.id)
     if (from < 0) return
-    const last = pages.length - 1
+    const last = userPages.length - 1
     const to = where === 'start' ? 0
       : where === 'end' ? last
       : where === 'left' ? Math.max(0, from - 1)
       : Math.min(last, from + 1)
     if (to === from) return
-    onReorderPages?.(arrayMove(pages, from, to).map((p) => p.id))
+    onReorderPages?.(arrayMove(userPages, from, to).map((p) => p.id))
   }
 
   const openTabMenu = (event, page) => {
@@ -258,9 +260,9 @@ export default function TopBar({
 
   const tabMenuItems = (() => {
     if (!tabMenu) return []
-    const idx = pages.findIndex((p) => p.id === tabMenu.page.id)
+    const idx = userPages.findIndex((p) => p.id === tabMenu.page.id)
     const atStart = idx <= 0
-    const atEnd = idx >= pages.length - 1
+    const atEnd = idx >= userPages.length - 1
     const items = [
       {
         key: 'settings',
@@ -323,8 +325,8 @@ export default function TopBar({
             <>
               {reorderable ? (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePageDragEnd}>
-                  <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
-                    {pages.map((p) => (
+                  <SortableContext items={userPages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
+                    {userPages.map((p) => (
                       <SortablePageTab
                         key={p.id}
                         page={p}
@@ -336,7 +338,7 @@ export default function TopBar({
                   </SortableContext>
                 </DndContext>
               ) : (
-                pages.map((p) => (
+                userPages.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => onSelectPage(p.id)}
@@ -351,6 +353,19 @@ export default function TopBar({
                   </button>
                 ))
               )}
+              {systemPages.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => onSelectPage(p.id)}
+                  className={`cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition ${
+                    p.id === currentPageId
+                      ? 'bg-white/10 font-medium text-white'
+                      : 'text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  {p.title}
+                </button>
+              ))}
               {canEdit && (
                 <button onClick={onAddPage} className={`${btnGhost} px-2 py-1.5`} title="New page" aria-label="New page">
                   <Plus className="h-4 w-4" />

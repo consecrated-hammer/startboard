@@ -89,7 +89,7 @@ export default function App() {
             }
           />
           <Route
-            path="/docker"
+            path="/p/docker"
             element={
               <RequireAuth adminOnly>
                 <DockerSystemPage />

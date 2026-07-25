@@ -113,7 +113,7 @@ Board rendering:
 
 ### Generated Docker system page
 
-Admins also have a **Docker services** tab at `/docker`, rendered in the normal
+Admins also have a **Docker services** tab at `/p/docker`, rendered in the normal
 Startboard board shell. It is a live, non-persisted system page rather than a
 user-managed Startboard page:
 

@@ -5,7 +5,7 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { Image as ImageIcon, Plus } from 'lucide-react'
-import { bookmarksAPI, errorMessage, groupsAPI, pagesAPI } from '../services/api.js'
+import { adminAPI, bookmarksAPI, errorMessage, groupsAPI, pagesAPI } from '../services/api.js'
 import { offlineStore } from '../services/offline.js'
 import useColumnCount from '../hooks/useColumnCount.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -139,7 +139,7 @@ export default function BoardPage() {
   const { preferences, settings } = useAppState()
   const { pageId } = useParams()
   const navigate = useNavigate()
-  const { offlineAuth } = useAuth()
+  const { user, offlineAuth } = useAuth()
   const [board, setBoard] = useState(null)
   // max_cols 0 (or null) = "Max": fill the screen using the responsive count.
   const maxCols = board?.page?.max_cols ?? 0
@@ -152,6 +152,7 @@ export default function BoardPage() {
   useEffect(() => { colCountRef.current = colCount }, [colCount])
 
   const [pages, setPages] = useState([])
+  const [dockerSystemPageEnabled, setDockerSystemPageEnabled] = useState(false)
   const [groups, setGroups] = useState([])   // authoritative layout (logical cols 0..3)
   const [columns, setColumns] = useState([]) // rendered/working 2D, folded to colCount
   const [loading, setLoading] = useState(true)
@@ -180,6 +181,19 @@ export default function BoardPage() {
   const pagePatchTimerRef = useRef(null)
   const pendingPagePatchRef = useRef({})
   const trackedViewKeyRef = useRef(null)
+
+  useEffect(() => {
+    if (user?.role !== 'admin') return undefined
+    let cancelled = false
+    adminAPI.getSettings()
+      .then((next) => {
+        if (!cancelled) setDockerSystemPageEnabled(Boolean(next.docker_integration_enabled))
+      })
+      .catch(() => {
+        if (!cancelled) setDockerSystemPageEnabled(false)
+      })
+    return () => { cancelled = true }
+  }, [user?.role])
 
   useEffect(() => {
     const ms = slideshowIntervalMs(board?.page)
@@ -354,6 +368,11 @@ export default function BoardPage() {
   }, [])
 
   const canEdit = board?.can_edit && !offlineSnapshot && !offlineAuth
+  const navigationPages = useMemo(() => (
+    user?.role === 'admin' && dockerSystemPageEnabled
+      ? [...pages, { id: 'docker-system', title: 'Docker services', is_system_page: true }]
+      : pages
+  ), [pages, user?.role, dockerSystemPageEnabled])
   const effectiveEditing = editing && canEdit
   const showSearchBar = board?.page?.search_mode === 'show'
     || (board?.page?.search_mode !== 'hide' && preferences.show_search_bar)
@@ -795,10 +814,10 @@ export default function BoardPage() {
       }}
     >
       <TopBar
-        pages={pages}
+        pages={navigationPages}
         currentPageId={currentPageId}
         currentPage={board?.page}
-        onSelectPage={(id) => navigate(`/p/${id}`)}
+        onSelectPage={(id) => navigate(id === 'docker-system' ? '/p/docker' : `/p/${id}`)}
         onAddPage={addPage}
         onReorderPages={reorderPages}
         editing={effectiveEditing}

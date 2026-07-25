@@ -170,7 +170,7 @@ export default function DockerSystemPage() {
         pages={navPages}
         currentPageId={SYSTEM_PAGE_ID}
         currentPage={systemPage}
-        onSelectPage={(id) => navigate(id === SYSTEM_PAGE_ID ? '/docker' : `/p/${id}`)}
+        onSelectPage={(id) => navigate(id === SYSTEM_PAGE_ID ? '/p/docker' : `/p/${id}`)}
         onAddPage={() => {}}
         onReorderPages={() => {}}
         editing={false}
