@@ -113,8 +113,9 @@ Board rendering:
 
 ### Generated Docker system page
 
-Admins also have a dedicated **Docker services** page at `/docker`. It is a
-live, non-persisted system page rather than a user-managed Startboard page:
+Admins also have a **Docker services** tab at `/docker`, rendered in the normal
+Startboard board shell. It is a live, non-persisted system page rather than a
+user-managed Startboard page:
 
 - it is available only while Docker integration is enabled;
 - it includes only currently `healthy` or `running` workloads;

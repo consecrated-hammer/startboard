@@ -190,7 +190,7 @@ export default function DockerSystemPage() {
               <Server className="h-5 w-5 text-accent" />
               <h1 className="text-xl font-semibold text-white">Docker services</h1>
             </div>
-            <p className="mt-1 text-sm text-slate-400">Live system page for running Docker workloads. It updates from the enabled endpoint and is never saved as a regular board.</p>
+            <p className="mt-1 text-sm text-slate-400">Live system page for running Docker workloads.</p>
           </div>
           <div className="flex items-center gap-2">
             {data && <div className="text-sm text-slate-400">{data.workload_count} running services in {groupCount} groups</div>}
