@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Circle, Copy, ExternalLink, RefreshCcw, Server, XCircle } from 'lucide-react'
+import { Copy, RefreshCcw, Server } from 'lucide-react'
 import { adminAPI, errorMessage, pagesAPI } from '../services/api.js'
-import Favicon from '../components/Favicon.jsx'
 import Spinner from '../components/Spinner.jsx'
 import TopBar from '../components/board/TopBar.jsx'
+import BoardColumn from '../components/board/BoardColumn.jsx'
 import { btnPrimary, btnSecondary, input, label } from '../components/ui.js'
 import useColumnCount from '../hooks/useColumnCount.js'
 
@@ -12,7 +12,7 @@ const SYSTEM_PAGE_ID = 'docker-system'
 const GROUP_ALIGN_JUSTIFY = { left: 'start', center: 'center', right: 'end' }
 
 function estimatedGroupHeight(group) {
-  return 1 + (group.workloads?.length || 0)
+  return 1 + (group.bookmarks?.length || 0)
 }
 
 function buildColumns(groups, count, balanced) {
@@ -28,14 +28,6 @@ function buildColumns(groups, count, balanced) {
     heights[target] += estimatedGroupHeight(group)
   })
   return columns
-}
-
-const STATUS_META = {
-  healthy: { label: 'Healthy', tone: 'text-emerald-400', Icon: CheckCircle2 },
-  running: { label: 'Running', tone: 'text-emerald-400', Icon: CheckCircle2 },
-  stopped: { label: 'Stopped', tone: 'text-slate-400', Icon: Circle },
-  unhealthy: { label: 'Unhealthy', tone: 'text-red-400', Icon: XCircle },
-  unknown: { label: 'Unknown', tone: 'text-amber-400', Icon: Circle },
 }
 
 function CopyModal({ workload, destinations, onClose, onCopy, busy }) {
@@ -80,44 +72,6 @@ function CopyModal({ workload, destinations, onClose, onCopy, busy }) {
         </div>
       </div>
     </div>
-  )
-}
-
-function WorkloadCard({ workload, onCopy }) {
-  const status = workload.docker_status?.status || 'unknown'
-  const meta = STATUS_META[status] || STATUS_META.unknown
-  const StatusIcon = meta.Icon
-  return (
-    <article className="rounded-lg px-2 py-1.5 transition hover:bg-white/5">
-      <div className="flex items-start gap-3">
-        <Favicon iconUrl={workload.icon_url} title={workload.title} size={28} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-white" title={workload.title}>{workload.title}</h3>
-            <span className={`inline-flex shrink-0 items-center gap-1 text-xs ${meta.tone}`} title={`Docker status: ${meta.label}`}>
-              <StatusIcon className="h-3.5 w-3.5" />
-              {meta.label}
-            </span>
-          </div>
-          <p className="mt-0.5 truncate text-xs text-slate-500" title={workload.key}>{workload.key}</p>
-          {workload.description && <p className="mt-2 line-clamp-2 text-xs text-slate-400">{workload.description}</p>}
-        </div>
-      </div>
-      <div className="mt-2 flex justify-end gap-2">
-        {workload.href ? (
-          <>
-            <a className={btnSecondary} href={workload.href} target="_blank" rel="noreferrer">
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span>Open</span>
-            </a>
-            <button type="button" className={btnSecondary} onClick={() => onCopy(workload)}>
-              <Copy className="h-3.5 w-3.5" />
-              <span>Copy to page</span>
-            </button>
-          </>
-        ) : null}
-      </div>
-    </article>
   )
 }
 
@@ -172,11 +126,37 @@ export default function DockerSystemPage() {
   }), [templatePage])
   const responsiveCols = useColumnCount(systemPage.card_max_width ?? 0, systemPage.card_gap_x ?? 16)
   const colCount = systemPage.max_cols > 0 ? Math.min(responsiveCols, systemPage.max_cols) : responsiveCols
+  const boardGroups = useMemo(() => (data?.groups || []).map((group, groupIndex) => ({
+    id: `docker-group-${groupIndex}`,
+    title: group.title,
+    icon_url: null,
+    bg_color: null,
+    header_bg_color: null,
+    header_text_color: null,
+    bookmark_title_color: '',
+    icon_color: '',
+    transparency: 0,
+    display_mode: 'list',
+    icon_size: 'small',
+    bookmark_align: 'auto',
+    visible_limit: 0,
+    bookmark_sort: 'manual',
+    column: groupIndex,
+    position: groupIndex,
+    bookmarks: group.workloads.map((workload) => ({
+      ...workload,
+      id: `docker-${workload.key}`,
+      group_id: `docker-group-${groupIndex}`,
+      url: workload.href || `docker://${workload.key}`,
+      display_url: workload.href || null,
+      launchable: Boolean(workload.href),
+    })),
+  })), [data?.groups])
   const displayColumns = useMemo(() => buildColumns(
-    data?.groups || [],
+    boardGroups,
     colCount,
     systemPage.layout_mode === 'balanced' || systemPage.auto_balance,
-  ), [data?.groups, colCount, systemPage.layout_mode, systemPage.auto_balance])
+  ), [boardGroups, colCount, systemPage.layout_mode, systemPage.auto_balance])
 
   const copy = async (groupId) => {
     if (!copying) return
@@ -191,6 +171,12 @@ export default function DockerSystemPage() {
     } finally {
       setCopyBusy(false)
     }
+  }
+
+  const openAllInTabs = (group) => {
+    group.bookmarks
+      .filter((bookmark) => bookmark.launchable)
+      .forEach((bookmark) => window.open(bookmark.url, '_blank', 'noopener,noreferrer'))
   }
 
   return (
@@ -263,19 +249,26 @@ export default function DockerSystemPage() {
             }}
           >
             {displayColumns.map((column, index) => (
-              <div key={index} className="flex min-w-0 flex-col" style={{ gap: `${systemPage.card_gap ?? 12}px` }}>
-                {column.map((group) => (
-                  <section key={group.title} className="flex w-full flex-col rounded-2xl border border-white/10 bg-white/3">
-                    <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-                      <Favicon title={group.title} size={18} color={systemPage.icon_color || ''} />
-                      <h2 className="flex-1 truncate text-sm font-semibold uppercase tracking-wide text-slate-300">{group.title}</h2>
-                    </div>
-                    <div className="space-y-1 p-2">
-                      {group.workloads.map((workload) => <WorkloadCard key={workload.key} workload={workload} onCopy={setCopying} />)}
-                    </div>
-                  </section>
-                ))}
-              </div>
+              <BoardColumn
+                key={index}
+                index={index}
+                groups={column}
+                editing={false}
+                canManage={false}
+                groupDndEnabled={false}
+                bookmarkDndEnabled={false}
+                openNewTab={systemPage.open_new_tab}
+                showWebsiteIcons
+                cardGap={systemPage.card_gap}
+                bookmarkGap={systemPage.bookmark_gap}
+                pageTitleColor={systemPage.bookmark_title_color}
+                pageIconColor={systemPage.icon_color || ''}
+                handlers={{
+                  onOpenBookmark: () => {},
+                  onOpenAll: openAllInTabs,
+                  onCopyBookmarkToPage: setCopying,
+                }}
+              />
             ))}
           </div>
         )}

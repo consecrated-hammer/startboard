@@ -35,6 +35,7 @@ function buildBookmarkMenuItems(bookmark, canManage, {
   onDuplicate,
   onMove,
   onCopyLink,
+  onCopyToPage,
   onMoveTop,
   onMoveBottom,
   onDelete,
@@ -51,14 +52,20 @@ function buildBookmarkMenuItems(bookmark, canManage, {
         openBookmark(bookmark, true)
       },
     },
-    {
-      key: 'copy-link',
-      label: 'Copy link to clipboard',
-      icon: Copy,
-      disabled: !launchable,
-      onClick: () => onCopyLink?.(bookmark),
-    },
   ]
+  items.push(onCopyToPage ? {
+    key: 'copy-to-page',
+    label: 'Copy to page',
+    icon: Copy,
+    disabled: !launchable,
+    onClick: () => onCopyToPage(bookmark),
+  } : {
+    key: 'copy-link',
+    label: 'Copy link to clipboard',
+    icon: Copy,
+    disabled: !launchable,
+    onClick: () => onCopyLink?.(bookmark),
+  })
   if (!canManage) return items
   items.push(
     {
@@ -132,7 +139,7 @@ function BookmarkMenu({ items }) {
   )
 }
 
-export default function SortableBookmark({ bookmark, editing, canManage = false, dndEnabled = editing, openNewTab = true, showWebsiteIcons = true, displayMode = 'list', iconSize = 'small', bookmarkAlign = 'auto', titleColor = '', iconColor = '', onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onMoveTop, onMoveBottom, onDelete }) {
+export default function SortableBookmark({ bookmark, editing, canManage = false, dndEnabled = editing, openNewTab = true, showWebsiteIcons = true, displayMode = 'list', iconSize = 'small', bookmarkAlign = 'auto', titleColor = '', iconColor = '', onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onCopyToPage, onMoveTop, onMoveBottom, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `b:${bookmark.id}`,
     data: { type: 'bookmark', bookmark },
@@ -160,10 +167,11 @@ export default function SortableBookmark({ bookmark, editing, canManage = false,
     onDuplicate,
     onMove,
     onCopyLink,
+    onCopyToPage,
     onMoveTop,
     onMoveBottom,
     onDelete,
-  }), [bookmark, canManage, onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onMoveTop, onMoveBottom, onDelete])
+  }), [bookmark, canManage, onOpen, onEdit, onChangeIcon, onDuplicate, onMove, onCopyLink, onCopyToPage, onMoveTop, onMoveBottom, onDelete])
   const openContextMenu = (event) => {
     if (!menuItems.length) return
     event.preventDefault()

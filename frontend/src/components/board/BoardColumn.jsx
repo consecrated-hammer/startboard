@@ -50,6 +50,7 @@ export default function BoardColumn({ index, groups, editing, canManage = false,
             onDuplicateBookmark={handlers.onDuplicateBookmark}
             onMoveBookmark={handlers.onMoveBookmark}
             onCopyBookmarkLink={handlers.onCopyBookmarkLink}
+            onCopyBookmarkToPage={handlers.onCopyBookmarkToPage}
             onMoveBookmarkTop={handlers.onMoveBookmarkTop}
             onMoveBookmarkBottom={handlers.onMoveBookmarkBottom}
             onDeleteBookmark={handlers.onDeleteBookmark}

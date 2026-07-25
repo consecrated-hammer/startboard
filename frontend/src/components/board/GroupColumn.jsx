@@ -102,7 +102,7 @@ function GroupMenu({ items, editing }) {
 }
 
 // `bookmarkGap` is a pixel value.
-export default function GroupColumn({ group, editing, canManage = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
+export default function GroupColumn({ group, editing, canManage = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onCopyBookmarkToPage, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `g:${group.id}`,
     data: { type: 'group', group },
@@ -167,7 +167,7 @@ export default function GroupColumn({ group, editing, canManage = false, groupDn
         <h3 className={`flex-1 truncate text-sm font-semibold uppercase tracking-wide ${group.header_text_color ? '' : 'text-slate-300'}`}>
           {group.title}
         </h3>
-        <button
+        {onSetBookmarkSort && <button
           type="button"
           onClick={() => onSetBookmarkSort(group, group.bookmark_sort === 'manual' ? 'title_asc' : 'manual')}
           className={`inline-flex items-center rounded p-1 transition hover:text-white focus-visible:opacity-100 focus-visible:outline-none ${
@@ -177,7 +177,7 @@ export default function GroupColumn({ group, editing, canManage = false, groupDn
           aria-label={group.bookmark_sort === 'title_asc' ? 'Bookmarks sorted A-Z' : 'Manual bookmark order'}
         >
           {group.bookmark_sort === 'title_asc' ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5" />}
-        </button>
+        </button>}
         {(editing || group.bookmarks.length > 0) && (
           <GroupMenu items={menuItems} editing={editing} />
         )}
@@ -222,6 +222,7 @@ export default function GroupColumn({ group, editing, canManage = false, groupDn
               onDuplicate={onDuplicateBookmark}
               onMove={onMoveBookmark}
               onCopyLink={onCopyBookmarkLink}
+              onCopyToPage={onCopyBookmarkToPage}
               onMoveTop={onMoveBookmarkTop}
               onMoveBottom={onMoveBookmarkBottom}
               onDelete={onDeleteBookmark}
