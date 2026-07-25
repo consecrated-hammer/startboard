@@ -214,6 +214,11 @@ class DockerAssignmentsUpdate(BaseModel):
     assignments: list[DockerAssignmentItem]
 
 
+class DockerSystemPageCopy(BaseModel):
+    key: str = Field(min_length=1, max_length=200)
+    group_id: int
+
+
 class PermissionItem(BaseModel):
     user_id: int
     can_edit: bool = False

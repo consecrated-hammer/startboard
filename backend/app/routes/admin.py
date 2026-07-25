@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.db.database import get_db_connection
 from app.db.settings_store import get_docker_integration_settings
 from app.deps import require_admin
-from app.models.schemas import AdminUserCreate, AdminUserUpdate, DockerAssignmentsUpdate
+from app.models.schemas import AdminUserCreate, AdminUserUpdate, DockerAssignmentsUpdate, DockerSystemPageCopy
 from app.routes._helpers import now_iso
 from app.services.bookmark_links import docker_placeholder_url, is_launchable_url
 from app.services.bookmark_ops import create_bookmark_in_group
 from app.services.docker_status import DOCKER_SOURCE_TYPE, discover_docker_workloads, refresh_docker_status_cache
 from app.services.icon_store import ingest_remote_icon
+from app.utils.permissions import can_edit
 from app.utils.security import hash_password
 
 logger = logging.getLogger(__name__)
@@ -260,6 +261,65 @@ def _load_docker_destinations(conn):
     ]
 
 
+def _load_editable_docker_destinations(conn, user: dict) -> list[dict]:
+    """Return copy targets without granting admins implicit access to private pages."""
+    pages = conn.execute(
+        """
+        SELECT p.id, p.title, u.username AS owner_username
+        FROM pages p
+        JOIN users u ON u.id = p.owner_id
+        LEFT JOIN page_permissions pp ON pp.page_id = p.id AND pp.user_id = ?
+        WHERE p.is_archived = 0
+          AND (p.owner_id = ? OR pp.can_edit = 1)
+        ORDER BY p.position, p.id
+        """,
+        (user["id"], user["id"]),
+    ).fetchall()
+    page_ids = [page["id"] for page in pages]
+    if not page_ids:
+        return []
+    placeholders = ",".join("?" for _ in page_ids)
+    groups = conn.execute(
+        f"""
+        SELECT id, page_id, title
+        FROM groups
+        WHERE page_id IN ({placeholders})
+        ORDER BY page_id, col, position, id
+        """,
+        page_ids,
+    ).fetchall()
+    groups_by_page: dict[int, list[dict]] = {}
+    for group in groups:
+        groups_by_page.setdefault(group["page_id"], []).append({"id": group["id"], "title": group["title"]})
+    return [
+        {
+            "id": page["id"],
+            "title": page["title"],
+            "owner_username": page["owner_username"],
+            "groups": groups_by_page.get(page["id"], []),
+        }
+        for page in pages
+    ]
+
+
+def _system_page_groups(workloads: list[dict]) -> list[dict]:
+    """Group currently-running workloads by Homepage label with a stable fallback."""
+    grouped: dict[str, list[dict]] = {}
+    for workload in workloads:
+        status = workload.get("docker_status", {}).get("status")
+        if status not in {"healthy", "running"}:
+            continue
+        title = (workload.get("group_hint") or "").strip() or "Other Docker services"
+        grouped.setdefault(title, []).append(workload)
+    return [
+        {
+            "title": title,
+            "workloads": sorted(items, key=lambda item: (item["title"].lower(), item["key"].lower())),
+        }
+        for title, items in sorted(grouped.items(), key=lambda item: item[0].lower())
+    ]
+
+
 def _load_docker_assignments(conn) -> dict[str, list[dict]]:
     rows = conn.execute(
         """
@@ -344,6 +404,65 @@ def _docker_inventory_payload(conn) -> dict:
 def docker_preview(_: dict = Depends(require_admin)):
     with get_db_connection() as conn:
         return _docker_inventory_payload(conn)
+
+
+@router.get("/docker/system-page")
+def docker_system_page(admin: dict = Depends(require_admin)):
+    """Live, non-persisted Docker board for currently-running workloads."""
+    cfg = get_docker_integration_settings()
+    if not cfg["enabled"]:
+        raise HTTPException(status_code=409, detail="Enable the Docker integration to view the Docker page")
+    try:
+        workloads = discover_docker_workloads(cfg["api_endpoint"])
+        refresh_docker_status_cache()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Docker connection failed: {exc}") from exc
+    groups = _system_page_groups(workloads)
+    with get_db_connection() as conn:
+        return {
+            "endpoint": cfg["api_endpoint"],
+            "poll_seconds": cfg["poll_seconds"],
+            "groups": groups,
+            "workload_count": sum(len(group["workloads"]) for group in groups),
+            "destinations": _load_editable_docker_destinations(conn, admin),
+        }
+
+
+@router.post("/docker/system-page/copy", status_code=201)
+def copy_from_docker_system_page(payload: DockerSystemPageCopy, admin: dict = Depends(require_admin)):
+    """Copy one launchable live workload into an editable, ordinary bookmark group."""
+    cfg = get_docker_integration_settings()
+    if not cfg["enabled"]:
+        raise HTTPException(status_code=409, detail="Enable the Docker integration before copying services")
+    try:
+        workloads = discover_docker_workloads(cfg["api_endpoint"])
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Docker connection failed: {exc}") from exc
+    workload = next((item for item in workloads if item["key"] == payload.key.strip()), None)
+    if workload is None or workload.get("docker_status", {}).get("status") not in {"healthy", "running"}:
+        raise HTTPException(status_code=400, detail="That Docker workload is no longer running")
+    if not workload.get("href"):
+        raise HTTPException(status_code=400, detail="Only Docker workloads with a defined URL can be copied")
+
+    with get_db_connection() as conn:
+        group = conn.execute("SELECT * FROM groups WHERE id = ?", (payload.group_id,)).fetchone()
+        if group is None:
+            raise HTTPException(status_code=404, detail="Destination group not found")
+        page = conn.execute("SELECT * FROM pages WHERE id = ?", (group["page_id"],)).fetchone()
+        if page is None or not can_edit(conn, admin, page):
+            raise HTTPException(status_code=403, detail="Not allowed to add bookmarks to that group")
+        bookmark = create_bookmark_in_group(
+            conn,
+            user_id=admin["id"],
+            group_id=group["id"],
+            url=workload["href"],
+            title=workload["title"],
+            description=workload.get("description"),
+            icon_url=ingest_remote_icon(workload.get("icon_url")),
+            docker_ref=workload["key"],
+        )
+        conn.commit()
+        return {"bookmark_id": bookmark["id"], "group_id": group["id"], "title": bookmark["title"]}
 
 
 @router.post("/docker/assignments")

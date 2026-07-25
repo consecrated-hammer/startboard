@@ -111,6 +111,24 @@ Board rendering:
 - visibility-only Docker bookmarks do not navigate
 - context menus stay available for editable boards
 
+### Generated Docker system page
+
+Admins also have a dedicated **Docker services** page at `/docker`. It is a
+live, non-persisted system page rather than a user-managed Startboard page:
+
+- it is available only while Docker integration is enabled;
+- it includes only currently `healthy` or `running` workloads;
+- groups come from `homepage.group`, with **Other Docker services** as the
+  fallback for workloads without that label;
+- workloads disappear when they stop and reappear when Docker reports them
+  running again;
+- a workload with `homepage.href` can be copied into an ordinary bookmark on a
+  page/group that the admin can edit.
+
+Copied entries retain their Docker reference for status badges, but are normal
+bookmarks. They are not managed assignments and are not removed when the live
+system page changes.
+
 ## Status Model
 
 Docker status is intentionally lightweight.
