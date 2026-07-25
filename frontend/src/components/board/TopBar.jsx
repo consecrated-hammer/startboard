@@ -351,9 +351,11 @@ export default function TopBar({
                   </button>
                 ))
               )}
-              <button onClick={onAddPage} className={`${btnGhost} px-2 py-1.5`} title="New page" aria-label="New page">
-                <Plus className="h-4 w-4" />
-              </button>
+              {canEdit && (
+                <button onClick={onAddPage} className={`${btnGhost} px-2 py-1.5`} title="New page" aria-label="New page">
+                  <Plus className="h-4 w-4" />
+                </button>
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2">

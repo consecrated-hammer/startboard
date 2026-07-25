@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Circle, Copy, ExternalLink, RefreshCcw, Server, XCircle } from 'lucide-react'
-import { adminAPI, errorMessage } from '../services/api.js'
+import { adminAPI, errorMessage, pagesAPI } from '../services/api.js'
 import Favicon from '../components/Favicon.jsx'
 import Spinner from '../components/Spinner.jsx'
-import UserMenu from '../components/board/UserMenu.jsx'
+import TopBar from '../components/board/TopBar.jsx'
 import { btnPrimary, btnSecondary, input, label } from '../components/ui.js'
+
+const SYSTEM_PAGE_ID = 'docker-system'
 
 const STATUS_META = {
   healthy: { label: 'Healthy', tone: 'text-emerald-400', Icon: CheckCircle2 },
@@ -65,7 +67,7 @@ function WorkloadCard({ workload, onCopy }) {
   const meta = STATUS_META[status] || STATUS_META.unknown
   const StatusIcon = meta.Icon
   return (
-    <article className="rounded-xl border border-white/10 bg-white/5 p-3">
+    <article className="rounded-lg px-2 py-1.5 transition hover:bg-white/5">
       <div className="flex items-start gap-3">
         <Favicon iconUrl={workload.icon_url} title={workload.title} size={28} />
         <div className="min-w-0 flex-1">
@@ -80,7 +82,7 @@ function WorkloadCard({ workload, onCopy }) {
           {workload.description && <p className="mt-2 line-clamp-2 text-xs text-slate-400">{workload.description}</p>}
         </div>
       </div>
-      <div className="mt-3 flex justify-end gap-2">
+      <div className="mt-2 flex justify-end gap-2">
         {workload.href ? (
           <>
             <a className={btnSecondary} href={workload.href} target="_blank" rel="noreferrer">
@@ -92,16 +94,16 @@ function WorkloadCard({ workload, onCopy }) {
               <span>Copy to page</span>
             </button>
           </>
-        ) : (
-          <span className="text-xs text-slate-500">No homepage.href label</span>
-        )}
+        ) : null}
       </div>
     </article>
   )
 }
 
 export default function DockerSystemPage() {
+  const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [pages, setPages] = useState([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -114,7 +116,9 @@ export default function DockerSystemPage() {
     else setLoading(true)
     setError('')
     try {
-      setData(await adminAPI.dockerSystemPage())
+      const [systemPage, boardPages] = await Promise.all([adminAPI.dockerSystemPage(), pagesAPI.list()])
+      setData(systemPage)
+      setPages(boardPages)
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -129,6 +133,21 @@ export default function DockerSystemPage() {
   }, [load])
 
   const groupCount = useMemo(() => data?.groups?.length || 0, [data])
+  const navPages = useMemo(() => [
+    ...pages,
+    { id: SYSTEM_PAGE_ID, title: 'Docker services', is_system_page: true },
+  ], [pages])
+  const systemPage = useMemo(() => ({
+    id: SYSTEM_PAGE_ID,
+    title: 'Docker services',
+    max_cols: 0,
+    card_gap: 12,
+    card_gap_x: 16,
+    bookmark_gap: 2,
+    card_max_width: 0,
+    group_align: 'center',
+    open_new_tab: true,
+  }), [])
 
   const copy = async (groupId) => {
     if (!copying) return
@@ -146,24 +165,26 @@ export default function DockerSystemPage() {
   }
 
   return (
-    <div className="min-h-full bg-slate-950 text-slate-100">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-900/70 backdrop-blur">
-        <div className="flex items-center gap-3 px-4 py-2.5">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-2 py-1 transition hover:bg-white/5">
-            <img src="/favicon.svg" alt="" className="h-7 w-7" />
-            <span className="text-sm font-semibold text-white">Docker</span>
-          </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <button type="button" className={btnSecondary} onClick={() => load(true)} disabled={refreshing}>
-              {refreshing ? <Spinner className="h-4 w-4" /> : <RefreshCcw className="h-4 w-4" />}
-              <span>Refresh</span>
-            </button>
-            <UserMenu />
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="flex h-full flex-col">
+      <TopBar
+        pages={navPages}
+        currentPageId={SYSTEM_PAGE_ID}
+        currentPage={systemPage}
+        onSelectPage={(id) => navigate(id === SYSTEM_PAGE_ID ? '/docker' : `/p/${id}`)}
+        onAddPage={() => {}}
+        onReorderPages={() => {}}
+        editing={false}
+        onToggleEdit={() => {}}
+        canEdit={false}
+        onOpenSettings={() => {}}
+        onOpenPageSettings={() => {}}
+        onSharePage={() => {}}
+        onUnsharePage={() => {}}
+        onCopyPageShareLink={() => {}}
+        onAddGroup={() => {}}
+      />
+      <main className="flex-1 overflow-auto p-4 sm:p-5">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <Server className="h-5 w-5 text-accent" />
@@ -171,18 +192,27 @@ export default function DockerSystemPage() {
             </div>
             <p className="mt-1 text-sm text-slate-400">Live system page for running Docker workloads. It updates from the enabled endpoint and is never saved as a regular board.</p>
           </div>
-          {data && <div className="text-sm text-slate-400">{data.workload_count} running services in {groupCount} groups</div>}
+          <div className="flex items-center gap-2">
+            {data && <div className="text-sm text-slate-400">{data.workload_count} running services in {groupCount} groups</div>}
+            <button type="button" className={btnSecondary} onClick={() => load(true)} disabled={refreshing}>
+              {refreshing ? <Spinner className="h-4 w-4" /> : <RefreshCcw className="h-4 w-4" />}
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
         {error && <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
         {message && <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{message}</div>}
         {loading ? (
           <div className="flex justify-center py-20"><Spinner /></div>
         ) : data && (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {data.groups.map((group) => (
-              <section key={group.title} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-                <h2 className="mb-3 text-sm font-semibold text-white">{group.title}</h2>
-                <div className="space-y-2">
+              <section key={group.title} className="flex w-full flex-col rounded-2xl border border-white/10 bg-white/3">
+                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+                  <Favicon title={group.title} size={18} />
+                  <h2 className="flex-1 truncate text-sm font-semibold uppercase tracking-wide text-slate-300">{group.title}</h2>
+                </div>
+                <div className="space-y-1 p-2">
                   {group.workloads.map((workload) => <WorkloadCard key={workload.key} workload={workload} onCopy={setCopying} />)}
                 </div>
               </section>
