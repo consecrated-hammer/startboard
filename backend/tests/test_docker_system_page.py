@@ -1,4 +1,4 @@
-from app.routes.admin import _system_page_groups
+from app.services.docker_system_page import _group_workloads
 
 
 def _workload(key: str, title: str, status: str, group_hint: str | None = None) -> dict:
@@ -10,8 +10,8 @@ def _workload(key: str, title: str, status: str, group_hint: str | None = None) 
     }
 
 
-def test_system_page_groups_running_workloads_by_homepage_label():
-    groups = _system_page_groups(
+def test_system_page_groups_all_reported_workloads_by_homepage_label():
+    grouped = _group_workloads(
         [
             _workload("radarr", "Radarr", "healthy", "Media"),
             _workload("sonarr", "Sonarr", "running", "Media"),
@@ -22,9 +22,8 @@ def test_system_page_groups_running_workloads_by_homepage_label():
         ]
     )
 
-    assert [(group["title"], [item["key"] for item in group["workloads"]]) for group in groups] == [
-        ("Infrastructure", ["traefik"]),
-        ("Media", ["radarr", "sonarr"]),
-        ("Other Docker services", ["unlabelled"]),
-    ]
-
+    assert {title: sorted(item["key"] for item in workloads) for title, workloads in grouped.items()} == {
+        "Infrastructure": ["traefik"],
+        "Media": ["radarr", "sonarr", "stopped", "unhealthy"],
+        "Other Docker services": ["unlabelled"],
+    }

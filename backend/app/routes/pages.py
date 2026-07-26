@@ -30,7 +30,6 @@ from app.services.docker_system_page import (
     DOCKER_SYSTEM_PAGE_TYPE,
     ensure_docker_system_page,
     is_docker_system_page,
-    sync_docker_system_page,
 )
 from app.services.managed_images import (
     get_owner_image,
@@ -164,14 +163,6 @@ def get_board(page_id: int, user: dict | None = Depends(get_current_user)):
         page = _load_page_or_404(conn, page_id)
         if not can_view(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to view this page")
-        if is_docker_system_page(page):
-            cfg = get_docker_integration_settings()
-            if cfg["enabled"]:
-                try:
-                    sync_docker_system_page(conn, cfg["api_endpoint"])
-                    page = _load_page_or_404(conn, page_id)
-                except Exception:
-                    logger.exception("Docker system page sync during render failed")
         editable = can_edit(conn, user, page)
         groups = conn.execute(
             "SELECT * FROM groups WHERE page_id = ? ORDER BY col, position, id", (page_id,)

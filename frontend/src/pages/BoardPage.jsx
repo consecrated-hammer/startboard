@@ -175,6 +175,7 @@ export default function BoardPage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [manualDragGroupId, setManualDragGroupId] = useState(null)
   const [dockerCopyBookmark, setDockerCopyBookmark] = useState(null)
+  const [dockerCopyDestinations, setDockerCopyDestinations] = useState([])
   const [dockerCopyBusy, setDockerCopyBusy] = useState(false)
   const groupsRef = useRef(groups)
   const dragStartRef = useRef(null)
@@ -715,6 +716,18 @@ export default function BoardPage() {
       setDockerCopyBusy(false)
     }
   }
+  const openDockerCopy = async (bookmark) => {
+    setDockerCopyBookmark(bookmark)
+    setDockerCopyDestinations([])
+    try {
+      const destinationBoards = await Promise.all(
+        pages.filter((page) => !page.is_system_page).map((page) => pagesAPI.get(page.id)),
+      )
+      setDockerCopyDestinations(destinationBoards.map((data) => ({ ...data.page, groups: data.groups })))
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
   const copyPageShareLink = async (page) => {
     if (!page?.share_id) return
     const slug = page.slug || 'page'
@@ -794,7 +807,7 @@ export default function BoardPage() {
       setBookmarkModal({ group, bookmark })
     },
     onCopyBookmarkLink: copyBookmarkLink,
-    onCopyBookmarkToPage: (bookmark) => setDockerCopyBookmark(bookmark),
+    onCopyBookmarkToPage: openDockerCopy,
     onMoveBookmarkTop: (bookmark) => moveBookmarkToEdge(bookmark, 'top'),
     onMoveBookmarkBottom: (bookmark) => moveBookmarkToEdge(bookmark, 'bottom'),
     onDeleteBookmark: deleteBookmarkDirect,
@@ -902,7 +915,7 @@ export default function BoardPage() {
                       groups={[group]}
                       editing={effectiveEditing}
                       canManage={canManageBookmarks}
-                      managedGroup={isDockerSystemPage}
+                      managedGroup={isDockerSystemPage && canEdit}
                       groupDndEnabled={false}
                       manualDragEnabled={effectiveEditing}
                       activeManualDragGroupId={manualDragGroupId}
@@ -936,7 +949,7 @@ export default function BoardPage() {
                     groups={col}
                     editing={effectiveEditing}
                     canManage={canManageBookmarks}
-                    managedGroup={isDockerSystemPage}
+                    managedGroup={isDockerSystemPage && canEdit}
                     groupDndEnabled={groupDndEnabled}
                     bookmarkDndEnabled={bookmarkDndEnabled}
                     openNewTab={board.page.open_new_tab}
@@ -979,7 +992,7 @@ export default function BoardPage() {
         <BookmarkModal
           bookmark={bookmarkModal.bookmark}
           groups={groups}
-          pages={pages}
+          pages={dockerCopyDestinations}
           currentPageId={currentPageId}
           currentGroupId={bookmarkModal.group?.id ?? bookmarkModal.bookmark?.group_id ?? null}
           focusIcon={bookmarkModal.focusIcon || false}
@@ -1052,6 +1065,7 @@ export default function BoardPage() {
       )}
       {dockerCopyBookmark && (
         <CopyDockerBookmarkModal
+          key={dockerCopyDestinations.map((page) => page.id).join(',')}
           bookmark={dockerCopyBookmark}
           pages={pages}
           onCopy={copyDockerBookmark}
