@@ -312,7 +312,10 @@ export default function BoardPage() {
   const autoBalance = layoutMode === 'balanced'
   const manualLayout = layoutMode === 'manual'
   const singleRowOrder = board?.page?.single_row_order || 'natural'
-  const filteredGroups = useMemo(() => groups, [groups])
+  const isDockerSystemPage = board?.page?.is_system_page
+  const filteredGroups = useMemo(() => (
+    isDockerSystemPage ? groups.filter((group) => group.bookmarks.length > 0) : groups
+  ), [groups, isDockerSystemPage])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setColumns(buildColumns(filteredGroups, colCount, autoBalance, singleRowOrder))
@@ -358,7 +361,6 @@ export default function BoardPage() {
   }, [])
 
   const canEdit = board?.can_edit && !offlineSnapshot && !offlineAuth
-  const isDockerSystemPage = board?.page?.is_system_page
   const canManageBookmarks = canEdit && !isDockerSystemPage
   const effectiveEditing = editing && canEdit
   const showSearchBar = board?.page?.search_mode === 'show'
@@ -881,12 +883,14 @@ export default function BoardPage() {
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
           >
-            {groups.length === 0 ? (
+            {filteredGroups.length === 0 ? (
               <div className="flex min-h-[42vh] items-center justify-center">
                 <div className="w-full max-w-lg rounded-3xl border border-dashed border-white/10 bg-white/3 px-6 py-10 text-center">
-                  <h2 className="text-lg font-semibold text-white">No groups on this page yet</h2>
+                  <h2 className="text-lg font-semibold text-white">{isDockerSystemPage ? 'No Docker workloads reported' : 'No groups on this page yet'}</h2>
                   <p className="mt-2 text-sm text-slate-400">
-                    Create your first group to start organizing bookmarks on this page.
+                    {isDockerSystemPage
+                      ? 'Docker will add workloads here when it reports them.'
+                      : 'Create your first group to start organizing bookmarks on this page.'}
                   </p>
                   {canEdit && !isDockerSystemPage && (
                     <div className="mt-5">
