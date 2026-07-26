@@ -10,7 +10,6 @@ const BoardPage = lazy(() => import('./pages/BoardPage.jsx'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'))
 const PublicBoardPage = lazy(() => import('./pages/PublicBoardPage.jsx'))
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'))
-const DockerSystemPage = lazy(() => import('./pages/DockerSystemPage.jsx'))
 
 function RequireAuth({ children, adminOnly = false }) {
   const { user, loading } = useAuth()
@@ -85,14 +84,6 @@ export default function App() {
             element={
               <RequireAuth adminOnly>
                 <AnalyticsPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/p/docker"
-            element={
-              <RequireAuth adminOnly>
-                <DockerSystemPage />
               </RequireAuth>
             }
           />

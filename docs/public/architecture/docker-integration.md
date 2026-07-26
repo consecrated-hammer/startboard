@@ -113,22 +113,24 @@ Board rendering:
 
 ### Generated Docker system page
 
-Admins also have a **Docker services** tab at `/p/docker`, rendered in the normal
-Startboard board shell. It is a live, non-persisted system page rather than a
-user-managed Startboard page:
+When Docker integration is enabled, Startboard creates a real **Docker
+services** page for the primary administrator. It is listed and opened like any
+other page (`/p/<page-id>`) and uses the ordinary board layout, page settings,
+and group settings.
 
-- it is available only while Docker integration is enabled;
 - it includes only currently `healthy` or `running` workloads;
 - groups come from `homepage.group`, with **Other Docker services** as the
   fallback for workloads without that label;
 - workloads disappear when they stop and reappear when Docker reports them
   running again;
-- a workload with `homepage.href` can be copied into an ordinary bookmark on a
-  page/group that the admin can edit.
+- page layout and group presentation settings are persisted normally;
+- Docker-managed bookmarks cannot be edited, moved, or deleted; their
+  right-click menu provides Open and, when `homepage.href` exists, Copy to page.
 
-Copied entries retain their Docker reference for status badges, but are normal
-bookmarks. They are not managed assignments and are not removed when the live
-system page changes.
+The generated records use `docker_system` (page), `docker_system_group`
+(group), and `docker_system_service` (bookmark) source types. A copied entry
+uses `docker_copy`, remains an ordinary editable bookmark with a Docker status
+reference, and is independent of the generated inventory lifecycle.
 
 ## Status Model
 

@@ -20,6 +20,7 @@ import PageSettingsModal from '../components/board/PageSettingsModal.jsx'
 import SearchPalette from '../components/board/SearchPalette.jsx'
 import TextPromptModal from '../components/board/TextPromptModal.jsx'
 import GroupBookmarkManagerModal from '../components/board/GroupBookmarkManagerModal.jsx'
+import CopyDockerBookmarkModal from '../components/board/CopyDockerBookmarkModal.jsx'
 import { btnPrimary } from '../components/ui.js'
 import Spinner from '../components/Spinner.jsx'
 import { isBookmarkLaunchable } from '../lib/bookmarkLinks.js'
@@ -139,7 +140,7 @@ export default function BoardPage() {
   const { preferences, settings } = useAppState()
   const { pageId } = useParams()
   const navigate = useNavigate()
-  const { user, offlineAuth } = useAuth()
+  const { offlineAuth } = useAuth()
   const [board, setBoard] = useState(null)
   // max_cols 0 (or null) = "Max": fill the screen using the responsive count.
   const maxCols = board?.page?.max_cols ?? 0
@@ -152,7 +153,6 @@ export default function BoardPage() {
   useEffect(() => { colCountRef.current = colCount }, [colCount])
 
   const [pages, setPages] = useState([])
-  const [dockerSystemPageEnabled, setDockerSystemPageEnabled] = useState(false)
   const [groups, setGroups] = useState([])   // authoritative layout (logical cols 0..3)
   const [columns, setColumns] = useState([]) // rendered/working 2D, folded to colCount
   const [loading, setLoading] = useState(true)
@@ -174,6 +174,8 @@ export default function BoardPage() {
   const [moveGroupBusy, setMoveGroupBusy] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [manualDragGroupId, setManualDragGroupId] = useState(null)
+  const [dockerCopyBookmark, setDockerCopyBookmark] = useState(null)
+  const [dockerCopyBusy, setDockerCopyBusy] = useState(false)
   const groupsRef = useRef(groups)
   const dragStartRef = useRef(null)
   const manualDragRef = useRef(null)
@@ -181,19 +183,6 @@ export default function BoardPage() {
   const pagePatchTimerRef = useRef(null)
   const pendingPagePatchRef = useRef({})
   const trackedViewKeyRef = useRef(null)
-
-  useEffect(() => {
-    if (user?.role !== 'admin') return undefined
-    let cancelled = false
-    adminAPI.getSettings()
-      .then((next) => {
-        if (!cancelled) setDockerSystemPageEnabled(Boolean(next.docker_integration_enabled))
-      })
-      .catch(() => {
-        if (!cancelled) setDockerSystemPageEnabled(false)
-      })
-    return () => { cancelled = true }
-  }, [user?.role])
 
   useEffect(() => {
     const ms = slideshowIntervalMs(board?.page)
@@ -368,18 +357,15 @@ export default function BoardPage() {
   }, [])
 
   const canEdit = board?.can_edit && !offlineSnapshot && !offlineAuth
-  const navigationPages = useMemo(() => (
-    user?.role === 'admin' && dockerSystemPageEnabled
-      ? [...pages, { id: 'docker-system', title: 'Docker services', is_system_page: true }]
-      : pages
-  ), [pages, user?.role, dockerSystemPageEnabled])
+  const isDockerSystemPage = board?.page?.is_system_page
+  const canManageBookmarks = canEdit && !isDockerSystemPage
   const effectiveEditing = editing && canEdit
   const showSearchBar = board?.page?.search_mode === 'show'
     || (board?.page?.search_mode !== 'hide' && preferences.show_search_bar)
   // Group dragging is disabled while auto-balance is on so the stored manual
   // layout is preserved underneath. Bookmark dragging remains available.
   const groupDndEnabled = effectiveEditing && !autoBalance && !manualLayout
-  const bookmarkDndEnabled = effectiveEditing
+  const bookmarkDndEnabled = effectiveEditing && !isDockerSystemPage
 
   // With a fixed card width the grid centres its tracks, so reserving the full
   // colCount of tracks for a sparse board pushes the groups off to one side.
@@ -717,6 +703,18 @@ export default function BoardPage() {
     if (!isBookmarkLaunchable(bookmark)) return
     await navigator.clipboard?.writeText(bookmark.url)
   }
+  const copyDockerBookmark = async (groupId) => {
+    if (!dockerCopyBookmark?.source_ref) return
+    setDockerCopyBusy(true)
+    try {
+      await adminAPI.copyDockerSystemWorkload(dockerCopyBookmark.source_ref, groupId)
+      setDockerCopyBookmark(null)
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setDockerCopyBusy(false)
+    }
+  }
   const copyPageShareLink = async (page) => {
     if (!page?.share_id) return
     const slug = page.slug || 'page'
@@ -796,6 +794,7 @@ export default function BoardPage() {
       setBookmarkModal({ group, bookmark })
     },
     onCopyBookmarkLink: copyBookmarkLink,
+    onCopyBookmarkToPage: (bookmark) => setDockerCopyBookmark(bookmark),
     onMoveBookmarkTop: (bookmark) => moveBookmarkToEdge(bookmark, 'top'),
     onMoveBookmarkBottom: (bookmark) => moveBookmarkToEdge(bookmark, 'bottom'),
     onDeleteBookmark: deleteBookmarkDirect,
@@ -814,10 +813,10 @@ export default function BoardPage() {
       }}
     >
       <TopBar
-        pages={navigationPages}
+        pages={pages}
         currentPageId={currentPageId}
         currentPage={board?.page}
-        onSelectPage={(id) => navigate(id === 'docker-system' ? '/p/docker' : `/p/${id}`)}
+        onSelectPage={(id) => navigate(`/p/${id}`)}
         onAddPage={addPage}
         onReorderPages={reorderPages}
         editing={effectiveEditing}
@@ -829,6 +828,7 @@ export default function BoardPage() {
         onUnsharePage={unsharePage}
         onCopyPageShareLink={copyPageShareLink}
         onAddGroup={openAddGroup}
+        canAddGroup={!isDockerSystemPage}
         onPatchPage={patchPage}
         showSearch={showSearchBar}
         onOpenSearch={() => setSearchOpen(true)}
@@ -875,7 +875,7 @@ export default function BoardPage() {
                   <p className="mt-2 text-sm text-slate-400">
                     Create your first group to start organizing bookmarks on this page.
                   </p>
-                  {canEdit && (
+                  {canEdit && !isDockerSystemPage && (
                     <div className="mt-5">
                       <button className={btnPrimary} onClick={openAddGroup}>
                         <Plus className="h-4 w-4" />
@@ -901,7 +901,8 @@ export default function BoardPage() {
                       index={group.column ?? 0}
                       groups={[group]}
                       editing={effectiveEditing}
-                      canManage={canEdit}
+                      canManage={canManageBookmarks}
+                      managedGroup={isDockerSystemPage}
                       groupDndEnabled={false}
                       manualDragEnabled={effectiveEditing}
                       activeManualDragGroupId={manualDragGroupId}
@@ -934,7 +935,8 @@ export default function BoardPage() {
                     index={i}
                     groups={col}
                     editing={effectiveEditing}
-                    canManage={canEdit}
+                    canManage={canManageBookmarks}
+                    managedGroup={isDockerSystemPage}
                     groupDndEnabled={groupDndEnabled}
                     bookmarkDndEnabled={bookmarkDndEnabled}
                     openNewTab={board.page.open_new_tab}
@@ -1000,7 +1002,7 @@ export default function BoardPage() {
         <GroupModal
           group={groupModal.group}
           onSave={saveGroup}
-          onDelete={deleteGroupFromModal}
+          onDelete={isDockerSystemPage ? undefined : deleteGroupFromModal}
           onClose={() => setGroupModal(null)}
         />
       )}
@@ -1046,6 +1048,15 @@ export default function BoardPage() {
           initial={prompt.initial}
           onSubmit={prompt.onSubmit}
           onClose={() => setPrompt(null)}
+        />
+      )}
+      {dockerCopyBookmark && (
+        <CopyDockerBookmarkModal
+          bookmark={dockerCopyBookmark}
+          pages={pages}
+          onCopy={copyDockerBookmark}
+          onClose={() => setDockerCopyBookmark(null)}
+          busy={dockerCopyBusy}
         />
       )}
     </div>

@@ -526,6 +526,8 @@ def copy_from_docker_system_page(payload: DockerSystemPageCopy, admin: dict = De
             description=workload.get("description"),
             icon_url=ingest_remote_icon(workload.get("icon_url")),
             docker_ref=workload["key"],
+            source_type="docker_copy",
+            source_ref=workload["key"],
         )
         conn.commit()
         return {"bookmark_id": bookmark["id"], "group_id": group["id"], "title": bookmark["title"]}

@@ -219,7 +219,7 @@ function ColumnsMenu({ page, onPatchPage }) {
 export default function TopBar({
   pages, currentPageId, onSelectPage, onAddPage, onReorderPages,
   editing, onToggleEdit, canEdit, onOpenSettings, onOpenPageSettings, onSharePage, onUnsharePage, onCopyPageShareLink,
-  onAddGroup, currentPage, onPatchPage,
+  onAddGroup, canAddGroup = true, currentPage, onPatchPage,
   showSearch = false, onOpenSearch, searchShortcutLabel = 'Ctrl K',
 }) {
   const { settings } = useAppState()
@@ -406,10 +406,10 @@ export default function TopBar({
             <>
               {editing && (
                 <>
-                  <button onClick={onAddGroup} className={btnSecondary} title="Add group" aria-label="Add group">
+                  {canAddGroup && <button onClick={onAddGroup} className={btnSecondary} title="Add group" aria-label="Add group">
                     <Plus className="h-4 w-4" />
                     <span className="hidden sm:inline">Group</span>
-                  </button>
+                  </button>}
                   {currentPage && onPatchPage && (
                     <>
                       <AppearanceMenu page={currentPage} onPatchPage={onPatchPage} />

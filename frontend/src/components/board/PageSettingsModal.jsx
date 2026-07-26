@@ -854,15 +854,15 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
           )}
 
           {activeTab === 'manage' && (
-            <SettingsSection title="Manage page" description="Duplicate, archive, or delete this page.">
+            <SettingsSection title="Manage page" description={page.is_system_page ? 'This Docker page remains available while the integration is enabled.' : 'Duplicate, archive, or delete this page.'}>
               <SettingsGroup>
-                <SettingsRow label="Duplicate page" hint="Create a copy of this page with all its groups and bookmarks.">
+                {!page.is_system_page && <SettingsRow label="Duplicate page" hint="Create a copy of this page with all its groups and bookmarks.">
                   <button className={btnSecondary} onClick={duplicatePage} disabled={busy}>
                     <Copy className="h-4 w-4" />
                     <span>Duplicate</span>
                   </button>
-                </SettingsRow>
-                <SettingsRow
+                </SettingsRow>}
+                {!page.is_system_page && <SettingsRow
                   label={page.is_archived ? 'Restore page' : 'Archive page'}
                   hint={page.is_archived
                     ? 'Bring this page back into the tab bar.'
@@ -872,9 +872,9 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
                     {page.is_archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
                     <span>{page.is_archived ? 'Restore' : 'Archive'}</span>
                   </button>
-                </SettingsRow>
+                </SettingsRow>}
               </SettingsGroup>
-              <div className="mt-4">
+              {!page.is_system_page && <div className="mt-4">
                 <SettingsGroup>
                   <SettingsRow label="Delete page" hint="Permanently delete this page and all its bookmarks. This can't be undone.">
                     <button className={btnDanger} onClick={removePage} disabled={busy}>
@@ -883,7 +883,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
                     </button>
                   </SettingsRow>
                 </SettingsGroup>
-              </div>
+              </div>}
             </SettingsSection>
           )}
         </div>

@@ -125,6 +125,8 @@ def init_db() -> None:
             bg_image TEXT,
             accent TEXT,
             icon_color TEXT,
+            source_type TEXT,
+            source_ref TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -167,11 +169,14 @@ def init_db() -> None:
         "ALTER TABLE pages ADD COLUMN accent TEXT",
         "ALTER TABLE pages ADD COLUMN bookmark_title_color TEXT",
         "ALTER TABLE pages ADD COLUMN icon_color TEXT",
+        "ALTER TABLE pages ADD COLUMN source_type TEXT",
+        "ALTER TABLE pages ADD COLUMN source_ref TEXT",
     ):
         try:
             cur.execute(ddl)
         except sqlite3.OperationalError:
             pass  # already exists
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_pages_source ON pages(source_type, source_ref)")
 
     # One-time data migration: card_gap/bookmark_gap moved from a 0–3 preset
     # index to a raw pixel value. Convert legacy index values once so existing

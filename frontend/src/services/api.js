@@ -178,8 +178,6 @@ export const adminAPI = {
   listPages: () => client.get('/admin/pages').then((r) => r.data),
   dockerPreview: () => client.get('/admin/docker/preview').then((r) => r.data),
   updateDockerAssignments: (assignments) => client.post('/admin/docker/assignments', { assignments }).then((r) => r.data),
-  dockerSystemPage: () => client.get('/admin/docker/system-page').then((r) => r.data),
-  updateDockerSystemPageOptions: (options) => client.put('/admin/docker/system-page/options', options).then((r) => r.data),
   copyDockerSystemWorkload: (key, groupId) => client.post('/admin/docker/system-page/copy', { key, group_id: groupId }).then((r) => r.data),
 }
 

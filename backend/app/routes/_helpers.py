@@ -92,6 +92,9 @@ def page_to_dict(page, user: dict | None, can_edit_flag: bool) -> dict:
         "accent": page["accent"],
         "bookmark_title_color": page["bookmark_title_color"] if "bookmark_title_color" in page.keys() else None,
         "icon_color": page["icon_color"] if "icon_color" in page.keys() else None,
+        "source_type": page["source_type"] if "source_type" in page.keys() else None,
+        "source_ref": page["source_ref"] if "source_ref" in page.keys() else None,
+        "is_system_page": bool(page["source_type"] == "docker_system") if "source_type" in page.keys() else False,
         "can_edit": can_edit_flag,
         "is_owner": bool(user and page["owner_id"] == user["id"]),
     }

@@ -10,7 +10,7 @@ import ContextMenu from '../ContextMenu.jsx'
 
 // Kebab menu for a group. In edit mode it holds the management actions; in view
 // mode it holds just "Open all links" (extensible for future view-mode items).
-function buildGroupMenuItems(group, canManage, {
+function buildGroupMenuItems(group, canManage, managedGroup, {
   onOpenAll,
   onAddBookmark,
   onEditBookmarks,
@@ -28,7 +28,7 @@ function buildGroupMenuItems(group, canManage, {
       onClick: () => onOpenAll(group),
     })
   }
-  if (!canManage) return items
+  if (!canManage && !managedGroup) return items
   items.push(
     {
       key: 'edit-group',
@@ -36,6 +36,9 @@ function buildGroupMenuItems(group, canManage, {
       icon: PencilLine,
       onClick: () => onRenameGroup(group),
     },
+  )
+  if (managedGroup) return items
+  items.push(
     {
       key: 'add-bookmark',
       label: 'Add bookmark',
@@ -102,7 +105,7 @@ function GroupMenu({ items, editing }) {
 }
 
 // `bookmarkGap` is a pixel value.
-export default function GroupColumn({ group, editing, canManage = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onCopyBookmarkToPage, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
+export default function GroupColumn({ group, editing, canManage = false, managedGroup = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onCopyBookmarkToPage, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `g:${group.id}`,
     data: { type: 'group', group },
@@ -117,7 +120,7 @@ export default function GroupColumn({ group, editing, canManage = false, groupDn
   const style = { transform: CSS.Transform.toString(transform), transition }
   const bookmarkIds = group.bookmarks.map((b) => `b:${b.id}`)
   const [contextMenu, setContextMenu] = useState(null)
-  const menuItems = useMemo(() => buildGroupMenuItems(group, canManage, {
+  const menuItems = useMemo(() => buildGroupMenuItems(group, canManage, managedGroup, {
     onOpenAll,
     onAddBookmark,
     onEditBookmarks,
@@ -125,7 +128,7 @@ export default function GroupColumn({ group, editing, canManage = false, groupDn
     onCopyGroup,
     onMoveGroup,
     onDeleteGroup,
-  }), [group, canManage, onOpenAll, onAddBookmark, onEditBookmarks, onRenameGroup, onCopyGroup, onMoveGroup, onDeleteGroup])
+  }), [group, canManage, managedGroup, onOpenAll, onAddBookmark, onEditBookmarks, onRenameGroup, onCopyGroup, onMoveGroup, onDeleteGroup])
   const openContextMenu = (event) => {
     if (!menuItems.length) return
     if (event.target instanceof Element && event.target.closest('[data-bookmark-context="true"]')) return
