@@ -87,11 +87,9 @@ def ensure_docker_system_page(conn: sqlite3.Connection):
     return conn.execute("SELECT * FROM pages WHERE id = ?", (cur.lastrowid,)).fetchone()
 
 
-def _running_workloads(workloads: list[dict]) -> dict[str, list[dict]]:
+def _group_workloads(workloads: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = {}
     for workload in workloads:
-        if workload.get("docker_status", {}).get("status") not in {"healthy", "running"}:
-            continue
         title = (workload.get("group_hint") or "").strip() or FALLBACK_GROUP
         grouped.setdefault(title, []).append(workload)
     return grouped
@@ -124,11 +122,11 @@ def _ensure_group(conn: sqlite3.Connection, page_id: int, label: str):
 
 
 def sync_docker_system_page(conn: sqlite3.Connection, endpoint: str) -> int | None:
-    """Synchronise live healthy/running workloads without overwriting user styling."""
+    """Synchronise every Docker-reported workload without overwriting user styling."""
     page = ensure_docker_system_page(conn)
     if page is None:
         return None
-    grouped = _running_workloads(discover_docker_workloads(endpoint))
+    grouped = _group_workloads(discover_docker_workloads(endpoint))
     desired_keys: set[str] = set()
     for label in sorted(grouped, key=str.lower):
         group = _ensure_group(conn, page["id"], label)

@@ -118,11 +118,11 @@ services** page for the primary administrator. It is listed and opened like any
 other page (`/p/<page-id>`) and uses the ordinary board layout, page settings,
 and group settings.
 
-- it includes only currently `healthy` or `running` workloads;
+- it includes every workload Docker currently reports, including `healthy`,
+  `running`, `unhealthy`, and stopped/exited workloads;
 - groups come from `homepage.group`, with **Other Docker services** as the
   fallback for workloads without that label;
-- workloads disappear when they stop and reappear when Docker reports them
-  running again;
+- a workload disappears only when Docker no longer reports its container;
 - page layout and group presentation settings are persisted normally;
 - Docker-managed bookmarks cannot be edited, moved, or deleted; their
   right-click menu provides Open and, when `homepage.href` exists, Copy to page.
