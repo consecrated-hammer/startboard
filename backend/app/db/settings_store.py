@@ -46,8 +46,8 @@ def sharing_enabled() -> bool:
     return get_app_settings().get("allow_sharing", "true") == "true"
 
 
-def get_docker_integration_settings() -> dict:
-    settings = get_app_settings()
+def get_docker_integration_settings(app_settings: dict | None = None) -> dict:
+    settings = app_settings or get_app_settings()
     poll_raw = settings.get("docker_status_poll_seconds", APP_DEFAULTS["docker_status_poll_seconds"])
     try:
         poll_seconds = max(5, min(3600, int(poll_raw)))

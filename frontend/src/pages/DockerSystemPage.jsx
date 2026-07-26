@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Copy, RefreshCcw, Server } from 'lucide-react'
 import { adminAPI, errorMessage, pagesAPI } from '../services/api.js'
@@ -80,6 +80,8 @@ export default function DockerSystemPage() {
   const [data, setData] = useState(null)
   const [pages, setPages] = useState([])
   const [templatePage, setTemplatePage] = useState(null)
+  const [options, setOptions] = useState({ page: {}, groups: {} })
+  const saveTimerRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -100,6 +102,7 @@ export default function DockerSystemPage() {
       setData(systemPage)
       setPages(boardPages)
       setTemplatePage(template?.page || null)
+      setOptions(systemPage.options || { page: {}, groups: {} })
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -113,6 +116,10 @@ export default function DockerSystemPage() {
     load()
   }, [load])
 
+  useEffect(() => () => {
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
+  }, [])
+
   const groupCount = useMemo(() => data?.groups?.length || 0, [data])
   const navPages = useMemo(() => [
     ...pages,
@@ -120,30 +127,35 @@ export default function DockerSystemPage() {
   ], [pages])
   const systemPage = useMemo(() => ({
     ...templatePage,
+    ...(options.page || {}),
     id: SYSTEM_PAGE_ID,
     title: 'Docker services',
     open_new_tab: true,
-  }), [templatePage])
+  }), [templatePage, options.page])
   const responsiveCols = useColumnCount(systemPage.card_max_width ?? 0, systemPage.card_gap_x ?? 16)
   const colCount = systemPage.max_cols > 0 ? Math.min(responsiveCols, systemPage.max_cols) : responsiveCols
-  const boardGroups = useMemo(() => (data?.groups || []).map((group, groupIndex) => ({
+  const boardGroups = useMemo(() => (data?.groups || []).map((group, groupIndex) => {
+    const groupOptions = options.groups?.[group.title] || {}
+    const workloads = [...group.workloads]
+    if (groupOptions.bookmark_sort === 'title_asc') workloads.sort((a, b) => a.title.localeCompare(b.title))
+    return ({
     id: `docker-group-${groupIndex}`,
     title: group.title,
-    icon_url: null,
+    icon_url: groupOptions.icon_url || null,
     bg_color: null,
     header_bg_color: null,
     header_text_color: null,
     bookmark_title_color: '',
     icon_color: '',
     transparency: 0,
-    display_mode: 'list',
-    icon_size: 'small',
-    bookmark_align: 'auto',
+    display_mode: groupOptions.display_mode || 'list',
+    icon_size: groupOptions.icon_size || 'small',
+    bookmark_align: groupOptions.bookmark_align || 'auto',
     visible_limit: 0,
-    bookmark_sort: 'manual',
+    bookmark_sort: groupOptions.bookmark_sort || 'manual',
     column: groupIndex,
-    position: groupIndex,
-    bookmarks: group.workloads.map((workload) => ({
+    position: Number.isFinite(groupOptions.position) ? groupOptions.position : groupIndex,
+    bookmarks: workloads.map((workload) => ({
       ...workload,
       id: `docker-${workload.key}`,
       group_id: `docker-group-${groupIndex}`,
@@ -151,7 +163,7 @@ export default function DockerSystemPage() {
       display_url: workload.href || null,
       launchable: Boolean(workload.href),
     })),
-  })), [data?.groups])
+  })}).sort((a, b) => a.position - b.position || a.title.localeCompare(b.title)), [data?.groups, options.groups])
   const displayColumns = useMemo(() => buildColumns(
     boardGroups,
     colCount,
@@ -178,6 +190,26 @@ export default function DockerSystemPage() {
       .filter((bookmark) => bookmark.launchable)
       .forEach((bookmark) => window.open(bookmark.url, '_blank', 'noopener,noreferrer'))
   }
+
+  const saveOptions = (next) => {
+    setOptions(next)
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = window.setTimeout(async () => {
+      try {
+        const saved = await adminAPI.updateDockerSystemPageOptions(next)
+        setOptions(saved)
+      } catch (err) {
+        setError(errorMessage(err))
+        load()
+      }
+    }, 400)
+  }
+
+  const updatePageOption = (key, value) => saveOptions({ ...options, page: { ...(options.page || {}), [key]: value } })
+  const updateGroupOption = (title, key, value) => saveOptions({
+    ...options,
+    groups: { ...(options.groups || {}), [title]: { ...(options.groups?.[title] || {}), [key]: value } },
+  })
 
   return (
     <div
@@ -234,6 +266,29 @@ export default function DockerSystemPage() {
             </button>
           </div>
         </div>
+        {data && (
+          <details className="mb-5 rounded-2xl border border-white/10 bg-white/3 p-4">
+            <summary className="cursor-pointer text-sm font-medium text-slate-200">Customize Docker page</summary>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label><span className={label}>Layout</span><select className={input} value={systemPage.layout_mode || 'natural'} onChange={(event) => updatePageOption('layout_mode', event.target.value)}><option value="natural">Natural</option><option value="balanced">Balanced</option></select></label>
+                <label><span className={label}>Max columns</span><input className={input} type="number" min="0" max="12" value={systemPage.max_cols ?? 0} onChange={(event) => updatePageOption('max_cols', Number(event.target.value) || 0)} /></label>
+                <label><span className={label}>Card width</span><input className={input} type="number" min="0" max="640" value={systemPage.card_max_width ?? 0} onChange={(event) => updatePageOption('card_max_width', Number(event.target.value) || 0)} /></label>
+                <label><span className={label}>Group alignment</span><select className={input} value={systemPage.group_align || 'center'} onChange={(event) => updatePageOption('group_align', event.target.value)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+              </div>
+              <div className="space-y-2">
+                {boardGroups.map((group) => (
+                  <div key={group.title} className="grid grid-cols-[minmax(0,1fr)_7rem_7rem_5rem] gap-2 rounded-lg border border-white/10 p-2">
+                    <div className="min-w-0"><div className="truncate text-sm text-white">{group.title}</div><input className={`${input} mt-1`} value={group.icon_url || ''} placeholder="Icon URL" onChange={(event) => updateGroupOption(group.title, 'icon_url', event.target.value)} /></div>
+                    <label><span className={label}>Layout</span><select className={input} value={group.display_mode} onChange={(event) => updateGroupOption(group.title, 'display_mode', event.target.value)}><option value="list">List</option><option value="detailed">Detailed</option><option value="icons">Icons</option><option value="cloud">Cloud</option></select></label>
+                    <label><span className={label}>Sort</span><select className={input} value={group.bookmark_sort} onChange={(event) => updateGroupOption(group.title, 'bookmark_sort', event.target.value)}><option value="manual">Docker order</option><option value="title_asc">Title A-Z</option></select></label>
+                    <label><span className={label}>Order</span><input className={input} type="number" value={group.position} onChange={(event) => updateGroupOption(group.title, 'position', Number(event.target.value) || 0)} /></label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </details>
+        )}
         {error && <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
         {message && <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{message}</div>}
         {loading ? (

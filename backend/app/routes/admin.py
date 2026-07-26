@@ -2,11 +2,12 @@
 
 import logging
 import sqlite3
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.database import get_db_connection
-from app.db.settings_store import get_docker_integration_settings
+from app.db.settings_store import get_app_settings, get_docker_integration_settings, set_app_settings
 from app.deps import require_admin
 from app.models.schemas import AdminUserCreate, AdminUserUpdate, DockerAssignmentsUpdate, DockerSystemPageCopy
 from app.routes._helpers import now_iso
@@ -19,6 +20,7 @@ from app.utils.security import hash_password
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
+DOCKER_SYSTEM_OPTIONS_KEY = "docker_system_page_options"
 
 
 def _user_out(row) -> dict:
@@ -320,6 +322,15 @@ def _system_page_groups(workloads: list[dict]) -> list[dict]:
     ]
 
 
+def _docker_system_options(app_settings: dict | None = None) -> dict:
+    raw = (app_settings or get_app_settings()).get(DOCKER_SYSTEM_OPTIONS_KEY, "")
+    try:
+        value = json.loads(raw) if raw else {}
+    except json.JSONDecodeError:
+        value = {}
+    return value if isinstance(value, dict) else {}
+
+
 def _load_docker_assignments(conn) -> dict[str, list[dict]]:
     rows = conn.execute(
         """
@@ -409,7 +420,8 @@ def docker_preview(_: dict = Depends(require_admin)):
 @router.get("/docker/system-page")
 def docker_system_page(admin: dict = Depends(require_admin)):
     """Live, non-persisted Docker board for currently-running workloads."""
-    cfg = get_docker_integration_settings()
+    app_settings = get_app_settings()
+    cfg = get_docker_integration_settings(app_settings)
     if not cfg["enabled"]:
         raise HTTPException(status_code=409, detail="Enable the Docker integration to view the Docker page")
     try:
@@ -425,7 +437,61 @@ def docker_system_page(admin: dict = Depends(require_admin)):
             "groups": groups,
             "workload_count": sum(len(group["workloads"]) for group in groups),
             "destinations": _load_editable_docker_destinations(conn, admin),
+            "options": _docker_system_options(app_settings),
         }
+
+
+@router.put("/docker/system-page/options")
+def update_docker_system_options(payload: dict, _: dict = Depends(require_admin)):
+    page = payload.get("page") if isinstance(payload.get("page"), dict) else {}
+    groups = payload.get("groups") if isinstance(payload.get("groups"), dict) else {}
+    allowed_page = {"max_cols", "layout_mode", "card_gap", "card_gap_x", "card_max_width", "group_align"}
+    allowed_group = {"icon_url", "display_mode", "icon_size", "bookmark_align", "bookmark_sort", "position"}
+    def bounded_int(value, low, high):
+        return value if isinstance(value, int) and not isinstance(value, bool) and low <= value <= high else None
+
+    clean_page = {}
+    for key, value in page.items():
+        if key == "max_cols":
+            value = bounded_int(value, 0, 12)
+        elif key in {"card_gap", "card_gap_x"}:
+            value = bounded_int(value, 0, 48)
+        elif key == "card_max_width":
+            value = bounded_int(value, 0, 640)
+        elif key == "layout_mode":
+            value = value if value in {"natural", "balanced"} else None
+        elif key == "group_align":
+            value = value if value in {"left", "center", "right"} else None
+        else:
+            continue
+        if value is not None:
+            clean_page[key] = value
+    clean_groups = {}
+    for key, raw_group in groups.items():
+        if not isinstance(raw_group, dict):
+            continue
+        clean_group = {}
+        for field, value in raw_group.items():
+            if field == "icon_url":
+                value = value.strip()[:2048] if isinstance(value, str) else None
+            elif field == "display_mode":
+                value = value if value in {"list", "detailed", "icons", "cloud"} else None
+            elif field == "icon_size":
+                value = value if value in {"small", "medium", "large", "xl"} else None
+            elif field == "bookmark_align":
+                value = value if value in {"auto", "left", "center"} else None
+            elif field == "bookmark_sort":
+                value = value if value in {"manual", "title_asc"} else None
+            elif field == "position":
+                value = bounded_int(value, 0, 999)
+            else:
+                continue
+            if value is not None:
+                clean_group[field] = value
+        clean_groups[str(key)[:120]] = clean_group
+    options = {"page": clean_page, "groups": clean_groups}
+    set_app_settings({DOCKER_SYSTEM_OPTIONS_KEY: json.dumps(options, separators=(",", ":"))})
+    return options
 
 
 @router.post("/docker/system-page/copy", status_code=201)
