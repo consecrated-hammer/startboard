@@ -18,6 +18,7 @@ DOCKER_SYSTEM_BOOKMARK_TYPE = "docker_system_service"
 DOCKER_SYSTEM_OWNER_ID = 1
 DOCKER_SYSTEM_PAGE_TITLE = "Docker services"
 FALLBACK_GROUP = "Other Docker services"
+INTERNAL_GROUP_SUFFIX = " · Internal"
 
 
 def is_docker_system_page(page) -> bool:
@@ -91,6 +92,8 @@ def _group_workloads(workloads: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = {}
     for workload in workloads:
         title = (workload.get("group_hint") or "").strip() or FALLBACK_GROUP
+        if not workload.get("href"):
+            title = f"{title}{INTERNAL_GROUP_SUFFIX}"
         grouped.setdefault(title, []).append(workload)
     return grouped
 
