@@ -996,7 +996,7 @@ export default function BoardPage() {
         <BookmarkModal
           bookmark={bookmarkModal.bookmark}
           groups={groups}
-          pages={dockerCopyDestinations}
+          pages={pages}
           currentPageId={currentPageId}
           currentGroupId={bookmarkModal.group?.id ?? bookmarkModal.bookmark?.group_id ?? null}
           focusIcon={bookmarkModal.focusIcon || false}
@@ -1071,7 +1071,7 @@ export default function BoardPage() {
         <CopyDockerBookmarkModal
           key={dockerCopyDestinations.map((page) => page.id).join(',')}
           bookmark={dockerCopyBookmark}
-          pages={pages}
+          pages={dockerCopyDestinations}
           onCopy={copyDockerBookmark}
           onClose={() => setDockerCopyBookmark(null)}
           busy={dockerCopyBusy}
