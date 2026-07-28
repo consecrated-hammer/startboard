@@ -9,7 +9,7 @@ homepage format:
 
 Usage (from backend/, venv active, env vars set):
     python -m scripts.import_homepage \
-        --yaml /mnt/docker/config/dockerconfigs/homepage/bookmarks.yaml \
+        --yaml /mnt/docker/state/app-data/homepage/bookmarks.yaml \
         --owner admin --page "Imported"
 """
 

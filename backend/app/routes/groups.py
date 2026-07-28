@@ -7,6 +7,7 @@ from app.deps import require_user
 from app.models.schemas import GroupCreate, GroupUpdate
 from app.routes._helpers import now_iso
 from app.services.icon_store import ingest_remote_icon
+from app.services.docker_system_page import is_docker_system_page
 from app.utils.permissions import can_edit, get_page
 
 router = APIRouter(tags=["groups"])
@@ -35,6 +36,8 @@ def create_group(page_id: int, payload: GroupCreate, user: dict = Depends(requir
             raise HTTPException(status_code=404, detail="Page not found")
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        if is_docker_system_page(page):
+            raise HTTPException(status_code=403, detail="Docker groups are created by the Docker integration")
         # Place new group in the shortest of the 4 logical columns for balance.
         counts = {c: 0 for c in range(4)}
         for row in conn.execute(
@@ -99,6 +102,8 @@ def update_group(group_id: int, payload: GroupUpdate, user: dict = Depends(requi
         group, page = _page_for_group(conn, group_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        if is_docker_system_page(page) and payload.page_id is not None and payload.page_id != group["page_id"]:
+            raise HTTPException(status_code=403, detail="Docker groups cannot be moved to another page")
         title = payload.title.strip() if payload.title else group["title"]
         icon_url = group["icon_url"] if payload.icon_url is None else ingest_remote_icon(payload.icon_url)
         bg_color = group["bg_color"] if payload.bg_color is None else (payload.bg_color or None)
@@ -188,6 +193,8 @@ def duplicate_group(group_id: int, user: dict = Depends(require_user)):
         group, page = _page_for_group(conn, group_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to duplicate this group")
+        if is_docker_system_page(page):
+            raise HTTPException(status_code=403, detail="Docker groups cannot be duplicated")
         max_pos = conn.execute(
             "SELECT COALESCE(MAX(position), -1) AS m FROM groups WHERE page_id = ? AND col = ?",
             (group["page_id"], group["col"]),
@@ -237,6 +244,8 @@ def delete_group(group_id: int, user: dict = Depends(require_user)):
         _group, page = _page_for_group(conn, group_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        if is_docker_system_page(page):
+            raise HTTPException(status_code=403, detail="Docker groups cannot be deleted")
         conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
         conn.commit()
     return None

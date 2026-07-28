@@ -5,7 +5,7 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { Image as ImageIcon, Plus } from 'lucide-react'
-import { bookmarksAPI, errorMessage, groupsAPI, pagesAPI } from '../services/api.js'
+import { adminAPI, bookmarksAPI, errorMessage, groupsAPI, pagesAPI } from '../services/api.js'
 import { offlineStore } from '../services/offline.js'
 import useColumnCount from '../hooks/useColumnCount.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -20,6 +20,7 @@ import PageSettingsModal from '../components/board/PageSettingsModal.jsx'
 import SearchPalette from '../components/board/SearchPalette.jsx'
 import TextPromptModal from '../components/board/TextPromptModal.jsx'
 import GroupBookmarkManagerModal from '../components/board/GroupBookmarkManagerModal.jsx'
+import CopyDockerBookmarkModal from '../components/board/CopyDockerBookmarkModal.jsx'
 import { btnPrimary } from '../components/ui.js'
 import Spinner from '../components/Spinner.jsx'
 import { isBookmarkLaunchable } from '../lib/bookmarkLinks.js'
@@ -173,6 +174,9 @@ export default function BoardPage() {
   const [moveGroupBusy, setMoveGroupBusy] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [manualDragGroupId, setManualDragGroupId] = useState(null)
+  const [dockerCopyBookmark, setDockerCopyBookmark] = useState(null)
+  const [dockerCopyDestinations, setDockerCopyDestinations] = useState([])
+  const [dockerCopyBusy, setDockerCopyBusy] = useState(false)
   const groupsRef = useRef(groups)
   const dragStartRef = useRef(null)
   const manualDragRef = useRef(null)
@@ -308,7 +312,10 @@ export default function BoardPage() {
   const autoBalance = layoutMode === 'balanced'
   const manualLayout = layoutMode === 'manual'
   const singleRowOrder = board?.page?.single_row_order || 'natural'
-  const filteredGroups = useMemo(() => groups, [groups])
+  const isDockerSystemPage = board?.page?.is_system_page
+  const filteredGroups = useMemo(() => (
+    isDockerSystemPage ? groups.filter((group) => group.bookmarks.length > 0) : groups
+  ), [groups, isDockerSystemPage])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setColumns(buildColumns(filteredGroups, colCount, autoBalance, singleRowOrder))
@@ -354,13 +361,14 @@ export default function BoardPage() {
   }, [])
 
   const canEdit = board?.can_edit && !offlineSnapshot && !offlineAuth
+  const canManageBookmarks = canEdit && !isDockerSystemPage
   const effectiveEditing = editing && canEdit
   const showSearchBar = board?.page?.search_mode === 'show'
     || (board?.page?.search_mode !== 'hide' && preferences.show_search_bar)
   // Group dragging is disabled while auto-balance is on so the stored manual
   // layout is preserved underneath. Bookmark dragging remains available.
   const groupDndEnabled = effectiveEditing && !autoBalance && !manualLayout
-  const bookmarkDndEnabled = effectiveEditing
+  const bookmarkDndEnabled = effectiveEditing && !isDockerSystemPage
 
   // With a fixed card width the grid centres its tracks, so reserving the full
   // colCount of tracks for a sparse board pushes the groups off to one side.
@@ -698,6 +706,30 @@ export default function BoardPage() {
     if (!isBookmarkLaunchable(bookmark)) return
     await navigator.clipboard?.writeText(bookmark.url)
   }
+  const copyDockerBookmark = async (groupId) => {
+    if (!dockerCopyBookmark?.source_ref) return
+    setDockerCopyBusy(true)
+    try {
+      await adminAPI.copyDockerSystemWorkload(dockerCopyBookmark.source_ref, groupId)
+      setDockerCopyBookmark(null)
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setDockerCopyBusy(false)
+    }
+  }
+  const openDockerCopy = async (bookmark) => {
+    setDockerCopyBookmark(bookmark)
+    setDockerCopyDestinations([])
+    try {
+      const destinationBoards = await Promise.all(
+        pages.filter((page) => !page.is_system_page).map((page) => pagesAPI.get(page.id)),
+      )
+      setDockerCopyDestinations(destinationBoards.map((data) => ({ ...data.page, groups: data.groups })))
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
   const copyPageShareLink = async (page) => {
     if (!page?.share_id) return
     const slug = page.slug || 'page'
@@ -777,6 +809,7 @@ export default function BoardPage() {
       setBookmarkModal({ group, bookmark })
     },
     onCopyBookmarkLink: copyBookmarkLink,
+    onCopyBookmarkToPage: openDockerCopy,
     onMoveBookmarkTop: (bookmark) => moveBookmarkToEdge(bookmark, 'top'),
     onMoveBookmarkBottom: (bookmark) => moveBookmarkToEdge(bookmark, 'bottom'),
     onDeleteBookmark: deleteBookmarkDirect,
@@ -810,6 +843,7 @@ export default function BoardPage() {
         onUnsharePage={unsharePage}
         onCopyPageShareLink={copyPageShareLink}
         onAddGroup={openAddGroup}
+        canAddGroup={!isDockerSystemPage}
         onPatchPage={patchPage}
         showSearch={showSearchBar}
         onOpenSearch={() => setSearchOpen(true)}
@@ -849,14 +883,16 @@ export default function BoardPage() {
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
           >
-            {groups.length === 0 ? (
+            {filteredGroups.length === 0 ? (
               <div className="flex min-h-[42vh] items-center justify-center">
                 <div className="w-full max-w-lg rounded-3xl border border-dashed border-white/10 bg-white/3 px-6 py-10 text-center">
-                  <h2 className="text-lg font-semibold text-white">No groups on this page yet</h2>
+                  <h2 className="text-lg font-semibold text-white">{isDockerSystemPage ? 'No Docker workloads reported' : 'No groups on this page yet'}</h2>
                   <p className="mt-2 text-sm text-slate-400">
-                    Create your first group to start organizing bookmarks on this page.
+                    {isDockerSystemPage
+                      ? 'Docker will add workloads here when it reports them.'
+                      : 'Create your first group to start organizing bookmarks on this page.'}
                   </p>
-                  {canEdit && (
+                  {canEdit && !isDockerSystemPage && (
                     <div className="mt-5">
                       <button className={btnPrimary} onClick={openAddGroup}>
                         <Plus className="h-4 w-4" />
@@ -882,7 +918,8 @@ export default function BoardPage() {
                       index={group.column ?? 0}
                       groups={[group]}
                       editing={effectiveEditing}
-                      canManage={canEdit}
+                      canManage={canManageBookmarks}
+                      managedGroup={isDockerSystemPage && canEdit}
                       groupDndEnabled={false}
                       manualDragEnabled={effectiveEditing}
                       activeManualDragGroupId={manualDragGroupId}
@@ -915,7 +952,8 @@ export default function BoardPage() {
                     index={i}
                     groups={col}
                     editing={effectiveEditing}
-                    canManage={canEdit}
+                    canManage={canManageBookmarks}
+                    managedGroup={isDockerSystemPage && canEdit}
                     groupDndEnabled={groupDndEnabled}
                     bookmarkDndEnabled={bookmarkDndEnabled}
                     openNewTab={board.page.open_new_tab}
@@ -981,7 +1019,7 @@ export default function BoardPage() {
         <GroupModal
           group={groupModal.group}
           onSave={saveGroup}
-          onDelete={deleteGroupFromModal}
+          onDelete={isDockerSystemPage ? undefined : deleteGroupFromModal}
           onClose={() => setGroupModal(null)}
         />
       )}
@@ -1027,6 +1065,16 @@ export default function BoardPage() {
           initial={prompt.initial}
           onSubmit={prompt.onSubmit}
           onClose={() => setPrompt(null)}
+        />
+      )}
+      {dockerCopyBookmark && (
+        <CopyDockerBookmarkModal
+          key={dockerCopyDestinations.map((page) => page.id).join(',')}
+          bookmark={dockerCopyBookmark}
+          pages={dockerCopyDestinations}
+          onCopy={copyDockerBookmark}
+          onClose={() => setDockerCopyBookmark(null)}
+          busy={dockerCopyBusy}
         />
       )}
     </div>

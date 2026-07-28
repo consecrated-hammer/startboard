@@ -91,11 +91,11 @@ def extension_destinations(user: dict = Depends(require_extension_user)):
             """
             SELECT DISTINCT p.* FROM pages p
             LEFT JOIN page_permissions pp ON pp.page_id = p.id AND pp.user_id = ?
-            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL OR ? = 'admin')
+            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL)
               AND p.is_archived = 0
             ORDER BY p.position, p.id
             """,
-            (user["id"], user["id"], user["role"]),
+            (user["id"], user["id"]),
         ).fetchall()
         out = []
         for page in pages:
@@ -135,11 +135,11 @@ def extension_duplicates(
             JOIN groups g ON g.id = b.group_id
             JOIN pages p ON p.id = g.page_id
             LEFT JOIN page_permissions pp ON pp.page_id = p.id AND pp.user_id = ?
-            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL OR ? = 'admin')
+            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL)
               AND p.is_archived = 0
             ORDER BY p.title, g.title, b.title
             """,
-            (user["id"], user["id"], user["role"]),
+            (user["id"], user["id"]),
         ).fetchall()
         matches = []
         for row in rows:

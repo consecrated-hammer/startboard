@@ -554,7 +554,7 @@ export default function GroupModal({ group, onSave, onDelete, onClose }) {
       onClose={onClose}
       footer={
         <>
-          {editing && <button className={`${btnDanger} mr-auto`} onClick={onDelete} disabled={busy}>Delete</button>}
+          {editing && onDelete && <button className={`${btnDanger} mr-auto`} onClick={onDelete} disabled={busy}>Delete</button>}
           <button className={btnSecondary} onClick={onClose} disabled={busy}>Cancel</button>
           <button className={btnPrimary} onClick={save} disabled={busy}>{busy ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}<span>Save</span></button>
         </>

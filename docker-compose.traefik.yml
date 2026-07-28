@@ -28,11 +28,11 @@ services:
       - TZ=${TZ:-Australia/Adelaide}
       - HOMEPAGE_COMPOSE_PATH=/imports/dockerconfigs/docker-compose.yml
       - HOMEPAGE_COMPOSE_ENV_PATH=/imports/dockerconfigs/.env
+      - DOCKER_READONLY_ENDPOINT=http://dockerproxy-readonly:2375
 
     volumes:
       - ${STARTBOARD_DATA_HOST_PATH:-./.data}:/data
-      - /mnt/docker/config/dockerconfigs:/imports/dockerconfigs:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/docker/infra/config/dockerconfigs:/imports/dockerconfigs:ro
 
     networks:
       - traefik_proxy

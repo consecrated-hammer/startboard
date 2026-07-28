@@ -12,9 +12,17 @@ from app.services.bookmark_metadata import fetch_link_metadata
 from app.services.bookmark_ops import create_bookmark_in_group
 from app.services.favicon import resolve_icon
 from app.services.icon_store import ingest_remote_icon, ingest_uploaded_icon, local_icon_file, recolor_svg_bytes
+from app.services.docker_system_page import DOCKER_SYSTEM_BOOKMARK_TYPE, is_docker_system_page
 from app.utils.permissions import can_edit, get_page
 
 router = APIRouter(tags=["bookmarks"])
+
+
+def _reject_managed_bookmark(bookmark, page):
+    if bookmark is not None and bookmark["source_type"] == DOCKER_SYSTEM_BOOKMARK_TYPE:
+        raise HTTPException(status_code=403, detail="Docker-managed bookmarks cannot be changed")
+    if is_docker_system_page(page):
+        raise HTTPException(status_code=403, detail="Docker-managed bookmarks cannot be changed")
 
 
 def _page_for_group(conn, group_id: int):
@@ -82,6 +90,7 @@ def create_bookmark(
         _group, page = _page_for_group(conn, group_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        _reject_managed_bookmark(None, page)
         b = create_bookmark_in_group(
             conn,
             user_id=user["id"],
@@ -106,6 +115,7 @@ def update_bookmark(
         b, page = _page_for_bookmark(conn, bookmark_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        _reject_managed_bookmark(b, page)
 
         url = payload.url.strip() if payload.url else b["url"]
         title = payload.title.strip() if payload.title is not None else b["title"]
@@ -167,6 +177,7 @@ def duplicate_bookmark(bookmark_id: int, user: dict = Depends(require_user)):
         b, page = _page_for_bookmark(conn, bookmark_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to duplicate this bookmark")
+        _reject_managed_bookmark(b, page)
         max_pos = conn.execute(
             "SELECT COALESCE(MAX(position), -1) AS m FROM bookmarks WHERE group_id = ?",
             (b["group_id"],),
@@ -198,6 +209,7 @@ def move_bookmark_to_edge(bookmark_id: int, payload: dict, user: dict = Depends(
         b, page = _page_for_bookmark(conn, bookmark_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this bookmark")
+        _reject_managed_bookmark(b, page)
         rows = conn.execute(
             "SELECT id FROM bookmarks WHERE group_id = ? ORDER BY position, id",
             (b["group_id"],),
@@ -217,6 +229,7 @@ def delete_bookmark(bookmark_id: int, user: dict = Depends(require_user)):
         _b, page = _page_for_bookmark(conn, bookmark_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        _reject_managed_bookmark(_b, page)
         conn.execute("DELETE FROM bookmarks WHERE id = ?", (bookmark_id,))
         conn.commit()
     return None
@@ -228,6 +241,7 @@ def share_bookmark(bookmark_id: int, payload: BookmarkShareCreate, user: dict = 
         bookmark, page = _page_for_bookmark(conn, bookmark_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to share this bookmark")
+        _reject_managed_bookmark(bookmark, page)
         target = conn.execute(
             """
             SELECT * FROM users

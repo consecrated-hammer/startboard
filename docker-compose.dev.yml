@@ -24,5 +24,5 @@ services:
       - HOMEPAGE_COMPOSE_ENV_PATH=/imports/dockerconfigs/.env
     volumes:
       - ./.data:/data
-      - /mnt/docker/config/dockerconfigs:/imports/dockerconfigs:ro
+      - /mnt/docker/infra/config/dockerconfigs:/imports/dockerconfigs:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, LogOut, Settings as SettingsIcon, Shield } from 'lucide-react'
+import { BarChart3, Container, LogOut, Settings as SettingsIcon, Shield } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useAppState } from '../../context/AppStateContext.jsx'
 
@@ -76,6 +76,14 @@ export default function UserMenu() {
               >
                 <BarChart3 className="h-4 w-4" />
                 <span>Analytics</span>
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => go('/docker')}
+                className="flex w-full items-center gap-2.5 border-t border-white/10 px-4 py-2.5 cursor-pointer text-sm text-slate-200 hover:bg-white/5"
+              >
+                <Container className="h-4 w-4" />
+                <span>Docker services</span>
               </button>
               <button
                 role="menuitem"

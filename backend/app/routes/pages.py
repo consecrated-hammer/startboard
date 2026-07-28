@@ -26,6 +26,11 @@ from app.routes._helpers import (
     slugify,
 )
 from app.services.docker_status import get_docker_status, refresh_docker_status_cache
+from app.services.docker_system_page import (
+    DOCKER_SYSTEM_PAGE_TYPE,
+    ensure_docker_system_page,
+    is_docker_system_page,
+)
 from app.services.managed_images import (
     get_owner_image,
     image_row_to_dict,
@@ -80,15 +85,18 @@ def _load_page_or_404(conn, page_id: int):
 def list_pages(user: dict = Depends(require_user)):
     """Pages visible to the user (owned + granted) for the tab bar."""
     with get_db_connection() as conn:
+        if get_docker_integration_settings()["enabled"]:
+            ensure_docker_system_page(conn)
+            conn.commit()
         rows = conn.execute(
             """
             SELECT DISTINCT p.* FROM pages p
             LEFT JOIN page_permissions pp ON pp.page_id = p.id AND pp.user_id = ?
-            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL OR ? = 'admin')
+            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL)
               AND p.is_archived = 0
             ORDER BY p.position, p.id
             """,
-            (user["id"], user["id"], user["role"]),
+            (user["id"], user["id"]),
         ).fetchall()
         return [page_to_dict(p, user, can_edit(conn, user, p)) for p in rows]
 
@@ -100,11 +108,11 @@ def list_archived_pages(user: dict = Depends(require_user)):
             """
             SELECT DISTINCT p.* FROM pages p
             LEFT JOIN page_permissions pp ON pp.page_id = p.id AND pp.user_id = ?
-            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL OR ? = 'admin')
+            WHERE (p.owner_id = ? OR pp.user_id IS NOT NULL)
               AND p.is_archived = 1
             ORDER BY p.updated_at DESC, p.id DESC
             """,
-            (user["id"], user["id"], user["role"]),
+            (user["id"], user["id"]),
         ).fetchall()
         return [page_to_dict(p, user, can_edit(conn, user, p)) for p in rows]
 
@@ -210,6 +218,8 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
         page = _load_page_or_404(conn, page_id)
         if not can_edit(conn, user, page):
             raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        if is_docker_system_page(page) and payload.is_archived:
+            raise HTTPException(status_code=403, detail="The Docker system page cannot be archived")
         title = payload.title.strip() if payload.title else page["title"]
         description = payload.description if payload.description is not None else page["description"]
         slug = slugify(payload.title) if payload.title else page["slug"]
@@ -320,6 +330,8 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
 def delete_page(page_id: int, user: dict = Depends(require_user)):
     with get_db_connection() as conn:
         page = _load_page_or_404(conn, page_id)
+        if page["source_type"] == DOCKER_SYSTEM_PAGE_TYPE:
+            raise HTTPException(status_code=403, detail="The Docker system page is managed by the Docker integration")
         if user["role"] != "admin" and page["owner_id"] != user["id"]:
             raise HTTPException(status_code=403, detail="Only the owner can delete a page")
         conn.execute("DELETE FROM pages WHERE id = ?", (page_id,))
@@ -528,6 +540,10 @@ def reorder(page_id: int, payload: ReorderRequest, user: dict = Depends(require_
                 "UPDATE groups SET col=?, position=?, updated_at=? WHERE id=?",
                 (g.column, g.position, ts, g.group_id),
             )
+            if is_docker_system_page(page):
+                # Docker owns inventory order and membership; group placement is
+                # still a normal page-layout preference.
+                continue
             for idx, bid in enumerate(g.bookmark_ids):
                 # Guard: bookmark must belong to this page (any of its groups).
                 conn.execute(

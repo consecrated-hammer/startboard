@@ -363,7 +363,7 @@ The repo-local Traefik compose file now persists Startboard state to a host path
 
 The recommended long-term production shape is your main host compose stack in:
 
-- `/mnt/docker/config/dockerconfigs/docker-compose.yml`
+- `/mnt/docker/infra/config/dockerconfigs/docker-compose.yml`
 
 That service is image-based and pulls from:
 

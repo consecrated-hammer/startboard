@@ -207,6 +207,15 @@ def snapshot_docker_status_cache() -> dict[str, dict]:
         return dict(_STATUS_CACHE)
 
 
+def _sync_system_page(endpoint: str) -> int | None:
+    """Run the persisted-page sync in the worker thread with its own DB handle."""
+    from app.db.database import get_db_connection
+    from app.services.docker_system_page import sync_docker_system_page
+
+    with get_db_connection() as conn:
+        return sync_docker_system_page(conn, endpoint)
+
+
 async def docker_status_loop() -> None:
     last_signature = None
 
@@ -225,7 +234,10 @@ async def docker_status_loop() -> None:
         if cfg["enabled"]:
             try:
                 cache = await asyncio.to_thread(refresh_docker_status_cache)
+                page_id = await asyncio.to_thread(_sync_system_page, cfg["api_endpoint"])
                 logger.debug("Docker status cache refreshed for %d services", len(cache))
+                if page_id:
+                    logger.debug("Docker system page %d synchronised", page_id)
             except Exception:
                 logger.exception("Docker status refresh failed")
 

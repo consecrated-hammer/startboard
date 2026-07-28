@@ -4,7 +4,7 @@ import GroupColumn from './GroupColumn.jsx'
 
 // One visual column of stacked group widgets. Droppable so groups can be dropped
 // into an empty column or below the last group. `cardGap` is a pixel value.
-export default function BoardColumn({ index, groups, editing, canManage = false, groupDndEnabled = editing, manualDragEnabled = false, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, cardGap = 12, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', handlers, activeManualDragGroupId = null, onManualDragStart }) {
+export default function BoardColumn({ index, groups, editing, canManage = false, managedGroup = false, groupDndEnabled = editing, manualDragEnabled = false, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, cardGap = 12, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', handlers, activeManualDragGroupId = null, onManualDragStart }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `col:${index}`,
     data: { type: 'column', index },
@@ -26,6 +26,7 @@ export default function BoardColumn({ index, groups, editing, canManage = false,
             group={g}
             editing={editing}
             canManage={canManage}
+            managedGroup={managedGroup}
             groupDndEnabled={groupDndEnabled}
             manualDragEnabled={manualDragEnabled}
             manualDragActive={activeManualDragGroupId === g.id}
@@ -50,6 +51,7 @@ export default function BoardColumn({ index, groups, editing, canManage = false,
             onDuplicateBookmark={handlers.onDuplicateBookmark}
             onMoveBookmark={handlers.onMoveBookmark}
             onCopyBookmarkLink={handlers.onCopyBookmarkLink}
+            onCopyBookmarkToPage={handlers.onCopyBookmarkToPage}
             onMoveBookmarkTop={handlers.onMoveBookmarkTop}
             onMoveBookmarkBottom={handlers.onMoveBookmarkBottom}
             onDeleteBookmark={handlers.onDeleteBookmark}
