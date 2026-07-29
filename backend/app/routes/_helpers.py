@@ -144,7 +144,10 @@ def bookmark_to_dict(b, extra: dict | None = None) -> dict:
         "url": b["url"],
         "display_url": b["url"] if launchable else None,
         "launchable": launchable,
-        "icon_url": b["icon_url"],
+        # Docker discovery owns icon_url; an administrator's icon override takes
+        # precedence without being replaced by the next discovery refresh.
+        "icon_url": b["icon_override_url"] or b["icon_url"] if "icon_override_url" in b.keys() else b["icon_url"],
+        "icon_override_url": b["icon_override_url"] if "icon_override_url" in b.keys() else None,
         "icon_color": b["icon_color"] if "icon_color" in b.keys() else None,
         "description": b["description"],
         "title_color": b["title_color"] if "title_color" in b.keys() else None,

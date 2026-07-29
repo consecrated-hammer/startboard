@@ -243,7 +243,7 @@ function IconResults({ title = 'Results', subtitle = '', busy, error, empty, chi
 }
 
 // Add or edit a bookmark. `bookmark` null => create mode.
-export default function BookmarkModal({ bookmark, groups = [], pages = [], currentPageId = null, currentGroupId = null, focusIcon = false, onSave, onDelete, onClose }) {
+export default function BookmarkModal({ bookmark, groups = [], pages = [], currentPageId = null, currentGroupId = null, focusIcon = false, managedIcon = false, onSave, onDelete, onClose }) {
   const editing = Boolean(bookmark)
   const iconPanelRef = useRef(null)
   const parsedIconify = useMemo(() => parseIconifyUrl(bookmark?.icon_url || ''), [bookmark?.icon_url])
@@ -576,7 +576,9 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
         title_color: titleColor.trim(),
         icon_color: iconColor.trim(),
         description: description.trim() || null,
-        icon_url: editing && !iconSourceDirty ? (bookmark?.icon_url ?? null) : (resolvedIconUrl || autoCreateIcon || null),
+        icon_url: editing && !iconSourceDirty
+          ? (managedIcon ? (bookmark?.icon_override_url ?? null) : (bookmark?.icon_url ?? null))
+          : (resolvedIconUrl || autoCreateIcon || null),
         docker_ref: dockerRef.trim() || null,
       })
       onClose()
@@ -678,12 +680,12 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
 
   return (
     <Modal
-      title={editing ? 'Edit bookmark' : 'Add bookmark'}
+      title={managedIcon ? 'Change Docker icon' : (editing ? 'Edit bookmark' : 'Add bookmark')}
       size="6xl"
       onClose={onClose}
       footer={
         <>
-          {editing && (
+          {editing && !managedIcon && (
             <button className={`${btnDanger} mr-auto`} onClick={onDelete} disabled={busy}>
               Delete
             </button>
@@ -699,9 +701,10 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
       }
     >
       {error && <div className="mb-3 text-sm text-red-400">{error}</div>}
+      {managedIcon && <p className="mb-3 text-sm text-slate-400">Only the icon is saved here; Docker continues to manage this service’s other details.</p>}
 
-      <div className="grid gap-5 2xl:grid-cols-[minmax(320px,0.82fr)_minmax(560px,1.28fr)] 2xl:items-start">
-        <div className="space-y-3">
+      <div className={`grid gap-5 ${managedIcon ? 'mx-auto max-w-2xl' : '2xl:grid-cols-[minmax(320px,0.82fr)_minmax(560px,1.28fr)] 2xl:items-start'}`}>
+        {!managedIcon && <div className="space-y-3">
           {editing && movablePages.length > 1 && (
             <Labeled text="Page">
               <select className={input} value={pageId} onChange={(e) => setPageId(e.target.value)}>
@@ -766,7 +769,7 @@ export default function BookmarkModal({ bookmark, groups = [], pages = [], curre
             </Labeled>
           </div>
           <p className="text-xs text-slate-500">Docker reference: container/service name for live status — leave blank to hide it.</p>
-        </div>
+        </div>}
 
         <div ref={iconPanelRef} className="rounded-xl border border-white/10 bg-white/5 p-4 2xl:p-5">
           <div className="mb-3 text-sm font-medium text-white">Icon</div>

@@ -5,7 +5,7 @@ from fastapi.responses import Response
 
 from app.db.database import get_db_connection
 from app.deps import require_user
-from app.models.schemas import BookmarkCreate, BookmarkShareCreate, BookmarkUpdate
+from app.models.schemas import BookmarkCreate, BookmarkIconOverrideUpdate, BookmarkShareCreate, BookmarkUpdate
 from app.routes._helpers import bookmark_to_dict, now_iso
 from app.services.bookmark_links import is_launchable_url
 from app.services.bookmark_metadata import fetch_link_metadata
@@ -169,6 +169,26 @@ def update_bookmark(
         conn.commit()
         out = conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
         return bookmark_to_dict(out)
+
+
+@router.patch("/bookmarks/{bookmark_id}/icon-override")
+def update_managed_bookmark_icon_override(
+    bookmark_id: int, payload: BookmarkIconOverrideUpdate, user: dict = Depends(require_user)
+):
+    """Persist an admin-selected icon while Docker continues to own service metadata."""
+    with get_db_connection() as conn:
+        b, page = _page_for_bookmark(conn, bookmark_id)
+        if not can_edit(conn, user, page):
+            raise HTTPException(status_code=403, detail="Not allowed to edit this page")
+        if b["source_type"] != DOCKER_SYSTEM_BOOKMARK_TYPE or not is_docker_system_page(page):
+            raise HTTPException(status_code=400, detail="Icon overrides are only available for Docker-managed bookmarks")
+        icon = ingest_remote_icon(payload.icon_url) if payload.icon_url else None
+        conn.execute(
+            "UPDATE bookmarks SET icon_override_url=?, updated_at=? WHERE id=?",
+            (icon, now_iso(), bookmark_id),
+        )
+        conn.commit()
+        return bookmark_to_dict(conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone())
 
 
 @router.post("/bookmarks/{bookmark_id}/duplicate", status_code=201)

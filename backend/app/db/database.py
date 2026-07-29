@@ -278,6 +278,7 @@ def init_db() -> None:
             title TEXT NOT NULL,
             url TEXT NOT NULL,
             icon_url TEXT,
+            icon_override_url TEXT,
             icon_color TEXT,
             description TEXT,
             source_type TEXT,
@@ -297,6 +298,7 @@ def init_db() -> None:
         "ALTER TABLE bookmarks ADD COLUMN docker_ref TEXT",
         "ALTER TABLE bookmarks ADD COLUMN title_color TEXT",
         "ALTER TABLE bookmarks ADD COLUMN icon_color TEXT",
+        "ALTER TABLE bookmarks ADD COLUMN icon_override_url TEXT",
     ):
         try:
             cur.execute(ddl)
