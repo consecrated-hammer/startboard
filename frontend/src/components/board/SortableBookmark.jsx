@@ -53,19 +53,22 @@ function buildBookmarkMenuItems(bookmark, canManage, {
       },
     },
   ]
-  items.push(onCopyToPage ? {
-    key: 'copy-to-page',
-    label: 'Copy to page',
-    icon: Copy,
-    disabled: !launchable,
-    onClick: () => onCopyToPage(bookmark),
-  } : {
+  items.push({
     key: 'copy-link',
-    label: 'Copy link to clipboard',
+    label: 'Copy URL to clipboard',
     icon: Copy,
     disabled: !launchable,
     onClick: () => onCopyLink?.(bookmark),
   })
+  if (bookmark.source_ref && onCopyToPage) {
+    items.push({
+      key: 'copy-to-page',
+      label: 'Copy to page',
+      icon: Copy,
+      disabled: !launchable,
+      onClick: () => onCopyToPage(bookmark),
+    })
+  }
   if (!canManage) return items
   items.push(
     {
