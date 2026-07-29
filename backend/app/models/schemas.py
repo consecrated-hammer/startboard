@@ -162,6 +162,10 @@ class BookmarkUpdate(BaseModel):
     position: Optional[int] = None
 
 
+class BookmarkIconOverrideUpdate(BaseModel):
+    icon_url: Optional[str] = Field(default=None, max_length=2048)
+
+
 class ExtensionBookmarkCreate(BaseModel):
     group_id: int
     title: Optional[str] = Field(default=None, max_length=200)

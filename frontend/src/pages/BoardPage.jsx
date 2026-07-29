@@ -362,6 +362,7 @@ export default function BoardPage() {
 
   const canEdit = board?.can_edit && !offlineSnapshot && !offlineAuth
   const canManageBookmarks = canEdit && !isDockerSystemPage
+  const canCustomizeDockerBookmarkIcons = canEdit && isDockerSystemPage
   const effectiveEditing = editing && canEdit
   const showSearchBar = board?.page?.search_mode === 'show'
     || (board?.page?.search_mode !== 'hide' && preferences.show_search_bar)
@@ -676,6 +677,11 @@ export default function BoardPage() {
     await loadBoard(board.page.id)
   }
   const saveBookmark = async (data) => {
+    if (bookmarkModal.managedIcon) {
+      await bookmarksAPI.updateIconOverride(bookmarkModal.bookmark.id, data.icon_url)
+      await loadBoard(board.page.id)
+      return
+    }
     if (bookmarkModal.bookmark) await bookmarksAPI.update(bookmarkModal.bookmark.id, data)
     else await bookmarksAPI.create(bookmarkModal.group.id, data)
     await loadBoard(board.page.id)
@@ -794,7 +800,7 @@ export default function BoardPage() {
   const handlers = {
     onOpenBookmark: trackBookmarkOpen,
     onEditBookmark: (group, b) => setBookmarkModal({ group, bookmark: b }),
-    onChangeBookmarkIcon: (group, b) => setBookmarkModal({ group, bookmark: b, focusIcon: true }),
+    onChangeBookmarkIcon: (group, b) => setBookmarkModal({ group, bookmark: b, focusIcon: true, managedIcon: isDockerSystemPage }),
     onAddBookmark: (group) => setBookmarkModal({ group, bookmark: null }),
     onEditBookmarks: openBookmarkManager,
     onOpenAll: openAllInTabs,
@@ -919,6 +925,7 @@ export default function BoardPage() {
                       groups={[group]}
                       editing={effectiveEditing}
                       canManage={canManageBookmarks}
+                      canCustomizeBookmarkIcons={canCustomizeDockerBookmarkIcons}
                       managedGroup={isDockerSystemPage && canEdit}
                       groupDndEnabled={false}
                       manualDragEnabled={effectiveEditing}
@@ -953,6 +960,7 @@ export default function BoardPage() {
                     groups={col}
                     editing={effectiveEditing}
                     canManage={canManageBookmarks}
+                    canCustomizeBookmarkIcons={canCustomizeDockerBookmarkIcons}
                     managedGroup={isDockerSystemPage && canEdit}
                     groupDndEnabled={groupDndEnabled}
                     bookmarkDndEnabled={bookmarkDndEnabled}
@@ -1000,6 +1008,7 @@ export default function BoardPage() {
           currentPageId={currentPageId}
           currentGroupId={bookmarkModal.group?.id ?? bookmarkModal.bookmark?.group_id ?? null}
           focusIcon={bookmarkModal.focusIcon || false}
+          managedIcon={bookmarkModal.managedIcon || false}
           onSave={saveBookmark}
           onDelete={deleteBookmark}
           onClose={() => setBookmarkModal(null)}

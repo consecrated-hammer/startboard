@@ -153,6 +153,8 @@ export const bookmarksAPI = {
     client.post(`/groups/${groupId}/bookmarks`, data).then((r) => r.data),
   update: (bookmarkId, patch) =>
     client.patch(`/bookmarks/${bookmarkId}`, patch).then((r) => r.data),
+  updateIconOverride: (bookmarkId, iconUrl) =>
+    client.patch(`/bookmarks/${bookmarkId}/icon-override`, { icon_url: iconUrl }).then((r) => r.data),
   duplicate: (bookmarkId) => client.post(`/bookmarks/${bookmarkId}/duplicate`).then((r) => r.data),
   moveToEdge: (bookmarkId, edge) => client.post(`/bookmarks/${bookmarkId}/move`, { edge }).then((r) => r.data),
   share: (bookmarkId, payload) => client.post(`/bookmarks/${bookmarkId}/share`, payload).then((r) => r.data),

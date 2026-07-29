@@ -105,7 +105,7 @@ function GroupMenu({ items, editing }) {
 }
 
 // `bookmarkGap` is a pixel value.
-export default function GroupColumn({ group, editing, canManage = false, managedGroup = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onCopyBookmarkToPage, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
+export default function GroupColumn({ group, editing, canManage = false, canCustomizeBookmarkIcons = false, managedGroup = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onCopyBookmarkToPage, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `g:${group.id}`,
     data: { type: 'group', group },
@@ -211,6 +211,7 @@ export default function GroupColumn({ group, editing, canManage = false, managed
               bookmark={b}
               editing={editing}
               canManage={canManage}
+              canCustomizeIcon={canCustomizeBookmarkIcons}
               dndEnabled={bookmarkDndEnabled}
               openNewTab={openNewTab}
               showWebsiteIcons={showWebsiteIcons}
