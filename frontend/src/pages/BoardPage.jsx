@@ -36,16 +36,21 @@ function estimateGroupHeight(group) {
   const visibleBookmarks = group.visible_limit > 0
     ? Math.min(group.bookmarks?.length ?? 0, group.visible_limit)
     : (group.bookmarks?.length ?? 0)
+  // Icon grids fit four per row, each row about twice a list row's height.
+  if (group.display_mode === 'icons') return 1 + Math.ceil(visibleBookmarks / 4) * 2
   return 1 + visibleBookmarks
 }
 
-function buildColumns(flatGroups, count, autoBalance = false, singleRowOrder = 'natural') {
+function buildColumns(flatGroups, count, autoBalance = false, singleRowOrder = 'natural', tallestFirst = false) {
   const cols = Array.from({ length: count }, () => [])
   const sorted = [...flatGroups].sort(
     (a, b) => (a.column - b.column) || (a.position - b.position),
   )
-  if (autoBalance) {
-    if (sorted.length <= count && singleRowOrder === 'tallest_first') {
+  // Tallest-first feeds the same masonry pass tallest to shortest, so the
+  // first row reads tallest to shortest and the rest fill the shortest column.
+  if (tallestFirst) sorted.sort((a, b) => estimateGroupHeight(b) - estimateGroupHeight(a))
+  if (autoBalance || tallestFirst) {
+    if (autoBalance && sorted.length <= count && singleRowOrder === 'tallest_first') {
       const singleRow = [...sorted].sort((a, b) => (
         estimateGroupHeight(b) - estimateGroupHeight(a)
       ) || ((a.column - b.column) || (a.position - b.position)))
@@ -243,6 +248,7 @@ export default function BoardPage() {
         colCountRef.current,
         pageLayoutMode(data.page) === 'balanced',
         data.page?.single_row_order || 'natural',
+        pageLayoutMode(data.page) === 'tallest',
       ),
     )
     setOfflineSnapshot(offline)
@@ -316,6 +322,7 @@ export default function BoardPage() {
   const layoutMode = pageLayoutMode(board?.page)
   const autoBalance = layoutMode === 'balanced'
   const manualLayout = layoutMode === 'manual'
+  const tallestFirst = layoutMode === 'tallest'
   const singleRowOrder = board?.page?.single_row_order || 'natural'
   const isDockerSystemPage = board?.page?.is_system_page
   const filteredGroups = useMemo(() => (
@@ -323,8 +330,8 @@ export default function BoardPage() {
   ), [groups, isDockerSystemPage])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setColumns(buildColumns(filteredGroups, colCount, autoBalance, singleRowOrder))
-  }, [filteredGroups, colCount, autoBalance, singleRowOrder])
+    setColumns(buildColumns(filteredGroups, colCount, autoBalance, singleRowOrder, tallestFirst))
+  }, [filteredGroups, colCount, autoBalance, singleRowOrder, tallestFirst])
 
   useEffect(() => {
     if (board?.page?.id) window.localStorage.setItem('startboard.lastPageId', String(board.page.id))
@@ -373,7 +380,7 @@ export default function BoardPage() {
     || (board?.page?.search_mode !== 'hide' && preferences.show_search_bar)
   // Group dragging is disabled while auto-balance is on so the stored manual
   // layout is preserved underneath. Bookmark dragging remains available.
-  const groupDndEnabled = effectiveEditing && !autoBalance && !manualLayout
+  const groupDndEnabled = effectiveEditing && !autoBalance && !tallestFirst && !manualLayout
   const bookmarkDndEnabled = effectiveEditing && !isDockerSystemPage
 
   // With a fixed card width the grid centres its tracks, so reserving the full

@@ -747,10 +747,11 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
             <>
               <SettingsSection title="Layout">
                 <SettingsGroup>
-                  <SettingsRow label="Layout mode" hint="Use your stored column flow, auto-balanced columns, or free placement.">
+                  <SettingsRow label="Layout mode" hint="Use your stored column flow, auto-balanced columns, tallest groups first, or free placement.">
                     <Select className="w-44" value={layoutMode} onChange={(e) => setLayoutMode(e.target.value)}>
                       <option value="natural">Natural</option>
                       <option value="balanced">Balanced</option>
+                      <option value="tallest">Tallest first</option>
                       <option value="manual">Manual</option>
                     </Select>
                   </SettingsRow>
@@ -905,6 +906,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
                 cardMaxWidth={cardMaxWidth}
                 layoutMode={layoutMode}
                 autoBalance={layoutMode === 'balanced'}
+                tallestFirst={layoutMode === 'tallest'}
                 singleRowOrder={singleRowOrder}
                 bgMode={bgImageMode}
                 bgColor={bgColor}

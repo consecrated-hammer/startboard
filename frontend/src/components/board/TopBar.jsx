@@ -137,6 +137,7 @@ function ColumnsMenu({ page, onPatchPage }) {
             >
               <option value="natural">Natural</option>
               <option value="balanced">Balanced</option>
+              <option value="tallest">Tallest first</option>
               <option value="manual">Manual</option>
             </select>
           </label>
