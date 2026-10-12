@@ -48,6 +48,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
   const [inviteCanEdit, setInviteCanEdit] = useState(false)
   const [grants, setGrants] = useState({})
   const [layoutMode, setLayoutMode] = useState(page.layout_mode || (page.auto_balance ? 'balanced' : 'natural'))
+  const [preventOverlap, setPreventOverlap] = useState(page.prevent_overlap ?? false)
   const [maxCols, setMaxCols] = useState(page.max_cols ?? 4)
   const [openNewTab, setOpenNewTab] = useState(page.open_new_tab ?? preferences.open_links_in_new_tab)
   const [singleRowOrder, setSingleRowOrder] = useState(page.single_row_order || 'natural')
@@ -165,6 +166,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
       title: title.trim() || page.title,
       description: description.trim() || null,
       layout_mode: layoutMode,
+      prevent_overlap: preventOverlap,
       max_cols: Number(maxCols),
       open_new_tab: openNewTab,
       auto_balance: layoutMode === 'balanced',
@@ -205,7 +207,7 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
     analyticsEnabled, bgColor, bgImage, bgImageFit, bgImageMode, bgManagedImageId, bgImagePosition,
     bgRenderEnabled, bgRenderHeight, bgRenderPosition, bgRenderWidth, bgSlideshowAdvanceMode,
     bgSlideshowIntervalUnit, bgSlideshowIntervalValue, cardGap, cardGapX,
-    cardMaxWidth, description, groupAlign, layoutMode, maxCols, openNewTab, page.title, pageRotationImageIds,
+    cardMaxWidth, description, groupAlign, layoutMode, maxCols, preventOverlap, openNewTab, page.title, pageRotationImageIds,
     pageSingleImageId, searchMode, showOverview, singleRowOrder, title, bookmarkGap, accent, bookmarkTitleColor, iconColor,
   ])
 
@@ -778,13 +780,10 @@ export default function PageSettingsModal({ page, groups, onClose, onSaved, onDe
                   </SettingsRow>
                   {layoutMode === 'manual' && (
                     <SettingsRow
-                      label="Manual placement"
-                      hint="Drag groups directly on the board. Startboard remembers those positions when you switch layouts."
-                      stack
+                      label="Prevent overlap"
+                      hint="Drag groups anywhere on the board. When on, a group dropped on another moves to the nearest free spot."
                     >
-                      <div className="text-sm text-slate-300">
-                        Groups can overlap and sit anywhere on the page in manual mode.
-                      </div>
+                      <Toggle checked={preventOverlap} onChange={setPreventOverlap} label="Prevent overlap" />
                     </SettingsRow>
                   )}
                 </SettingsGroup>

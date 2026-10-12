@@ -242,6 +242,7 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
 
         current_layout_mode = page["layout_mode"] if "layout_mode" in page.keys() and page["layout_mode"] else ("balanced" if page["auto_balance"] else "natural")
         layout_mode = pick(payload.layout_mode, current_layout_mode)
+        prevent_overlap = page["prevent_overlap"] if payload.prevent_overlap is None else int(payload.prevent_overlap)
         max_cols = pick(payload.max_cols, page["max_cols"])
         open_new_tab = page["open_new_tab"] if payload.open_new_tab is None else int(payload.open_new_tab)
         auto_balance = 1 if layout_mode == "balanced" else 0
@@ -279,7 +280,7 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
         conn.execute(
             """
             UPDATE pages SET title=?, description=?, slug=?, position=?, visibility=?, share_id=?, is_archived=?,
-                max_cols=?, open_new_tab=?, layout_mode=?, auto_balance=?, single_row_order=?, card_gap=?, card_gap_x=?, bookmark_gap=?, card_max_width=?,
+                max_cols=?, open_new_tab=?, layout_mode=?, prevent_overlap=?, auto_balance=?, single_row_order=?, card_gap=?, card_gap_x=?, bookmark_gap=?, card_max_width=?,
                 group_align=?, search_mode=?, show_overview=?, analytics_enabled=?, bg_image_mode=?, bg_managed_image_id=?, bg_image_fit=?, bg_image_position=?,
                 bg_render_enabled=?, bg_render_width=?, bg_render_height=?, bg_render_position=?,
                 bg_slideshow_enabled=?, bg_slideshow_interval_value=?, bg_slideshow_interval_unit=?, bg_slideshow_advance_mode=?,
@@ -287,7 +288,7 @@ def update_page(page_id: int, payload: PageUpdate, user: dict = Depends(require_
             WHERE id=?
             """,
             (title, description, slug, position, visibility, share_id, is_archived,
-             max_cols, open_new_tab, layout_mode, auto_balance, single_row_order, card_gap, card_gap_x, bookmark_gap, card_max_width,
+             max_cols, open_new_tab, layout_mode, prevent_overlap, auto_balance, single_row_order, card_gap, card_gap_x, bookmark_gap, card_max_width,
              group_align, search_mode, show_overview, analytics_enabled, bg_image_mode, bg_managed_image_id, bg_image_fit, bg_image_position,
              bg_render_enabled, bg_render_width, bg_render_height, bg_render_position,
              bg_slideshow_enabled, bg_slideshow_interval_value, bg_slideshow_interval_unit, bg_slideshow_advance_mode,
@@ -424,17 +425,17 @@ def duplicate_page(page_id: int, user: dict = Depends(require_user)):
             """
             INSERT INTO pages (
                 owner_id, title, description, slug, visibility, share_id, is_archived, position,
-                max_cols, open_new_tab, layout_mode, auto_balance, single_row_order, card_gap, card_gap_x, bookmark_gap, card_max_width,
+                max_cols, open_new_tab, layout_mode, prevent_overlap, auto_balance, single_row_order, card_gap, card_gap_x, bookmark_gap, card_max_width,
                 group_align, search_mode, show_overview, analytics_enabled,
                 bg_image_mode, bg_managed_image_id, bg_image_fit, bg_image_position, bg_render_enabled, bg_render_width, bg_render_height,
                 bg_render_position, bg_slideshow_enabled, bg_slideshow_interval_value, bg_slideshow_interval_unit,
                 bg_slideshow_advance_mode, bg_color, bg_image, accent, bookmark_title_color, icon_color, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, 'private', NULL, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, 'private', NULL, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 page["owner_id"], base_title, page["description"], clone_slug, max_pos + 1,
-                page["max_cols"], page["open_new_tab"], (page["layout_mode"] if "layout_mode" in page.keys() else ("balanced" if page["auto_balance"] else "natural")), page["auto_balance"], page["single_row_order"], page["card_gap"], page["card_gap_x"],
+                page["max_cols"], page["open_new_tab"], (page["layout_mode"] if "layout_mode" in page.keys() else ("balanced" if page["auto_balance"] else "natural")), page["prevent_overlap"], page["auto_balance"], page["single_row_order"], page["card_gap"], page["card_gap_x"],
                 page["bookmark_gap"], page["card_max_width"], page["group_align"], page["search_mode"], page["show_overview"],
                 page["analytics_enabled"], page["bg_image_mode"], page["bg_managed_image_id"], page["bg_image_fit"], page["bg_image_position"],
                 page["bg_render_enabled"], page["bg_render_width"], page["bg_render_height"], page["bg_render_position"],
