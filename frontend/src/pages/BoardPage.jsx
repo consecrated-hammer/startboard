@@ -25,6 +25,9 @@ import { btnPrimary } from '../components/ui.js'
 import Spinner from '../components/Spinner.jsx'
 import { isBookmarkLaunchable } from '../lib/bookmarkLinks.js'
 import { getAnalyticsViewerKey } from '../lib/analytics.js'
+import {
+  MANUAL_CARD_WIDTH, findFreeSpot, hasStoredPosition, resolveOverlaps, seedPositions,
+} from '../lib/manualLayout.js'
 
 const numId = (prefixed) => Number(String(prefixed).split(':')[1])
 
@@ -33,16 +36,21 @@ function estimateGroupHeight(group) {
   const visibleBookmarks = group.visible_limit > 0
     ? Math.min(group.bookmarks?.length ?? 0, group.visible_limit)
     : (group.bookmarks?.length ?? 0)
+  // Icon grids fit four per row, each row about twice a list row's height.
+  if (group.display_mode === 'icons') return 1 + Math.ceil(visibleBookmarks / 4) * 2
   return 1 + visibleBookmarks
 }
 
-function buildColumns(flatGroups, count, autoBalance = false, singleRowOrder = 'natural') {
+function buildColumns(flatGroups, count, autoBalance = false, singleRowOrder = 'natural', tallestFirst = false) {
   const cols = Array.from({ length: count }, () => [])
   const sorted = [...flatGroups].sort(
     (a, b) => (a.column - b.column) || (a.position - b.position),
   )
-  if (autoBalance) {
-    if (sorted.length <= count && singleRowOrder === 'tallest_first') {
+  // Tallest-first feeds the same masonry pass tallest to shortest, so the
+  // first row reads tallest to shortest and the rest fill the shortest column.
+  if (tallestFirst) sorted.sort((a, b) => estimateGroupHeight(b) - estimateGroupHeight(a))
+  if (autoBalance || tallestFirst) {
+    if (autoBalance && sorted.length <= count && singleRowOrder === 'tallest_first') {
       const singleRow = [...sorted].sort((a, b) => (
         estimateGroupHeight(b) - estimateGroupHeight(a)
       ) || ((a.column - b.column) || (a.position - b.position)))
@@ -128,11 +136,9 @@ function estimateManualGroupHeightPx(group) {
   return 96 + (iconGridRows * (group.display_mode === 'icons' ? 60 : 34))
 }
 
-function estimateManualCanvasHeight(groups) {
-  if (!groups?.length) return 480
-  const maxBottom = Math.max(...groups.map((group) => (
-    (Number(group.manual_y) || 24) + estimateManualGroupHeightPx(group)
-  )))
+function manualCanvasHeightFor(positions) {
+  if (!positions.size) return 480
+  const maxBottom = Math.max(...[...positions.values()].map((rect) => rect.y + rect.h))
   return Math.max(480, maxBottom + 64)
 }
 
@@ -180,6 +186,10 @@ export default function BoardPage() {
   const groupsRef = useRef(groups)
   const dragStartRef = useRef(null)
   const manualDragRef = useRef(null)
+  const manualCanvasRef = useRef(null)
+  const manualLayoutRef = useRef(null)
+  const [manualSizes, setManualSizes] = useState({})
+  const [manualCanvasWidth, setManualCanvasWidth] = useState(0)
   const loadRequestRef = useRef(0)
   const pagePatchTimerRef = useRef(null)
   const pendingPagePatchRef = useRef({})
@@ -238,6 +248,7 @@ export default function BoardPage() {
         colCountRef.current,
         pageLayoutMode(data.page) === 'balanced',
         data.page?.single_row_order || 'natural',
+        pageLayoutMode(data.page) === 'tallest',
       ),
     )
     setOfflineSnapshot(offline)
@@ -311,6 +322,7 @@ export default function BoardPage() {
   const layoutMode = pageLayoutMode(board?.page)
   const autoBalance = layoutMode === 'balanced'
   const manualLayout = layoutMode === 'manual'
+  const tallestFirst = layoutMode === 'tallest'
   const singleRowOrder = board?.page?.single_row_order || 'natural'
   const isDockerSystemPage = board?.page?.is_system_page
   const filteredGroups = useMemo(() => (
@@ -318,8 +330,8 @@ export default function BoardPage() {
   ), [groups, isDockerSystemPage])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setColumns(buildColumns(filteredGroups, colCount, autoBalance, singleRowOrder))
-  }, [filteredGroups, colCount, autoBalance, singleRowOrder])
+    setColumns(buildColumns(filteredGroups, colCount, autoBalance, singleRowOrder, tallestFirst))
+  }, [filteredGroups, colCount, autoBalance, singleRowOrder, tallestFirst])
 
   useEffect(() => {
     if (board?.page?.id) window.localStorage.setItem('startboard.lastPageId', String(board.page.id))
@@ -368,7 +380,7 @@ export default function BoardPage() {
     || (board?.page?.search_mode !== 'hide' && preferences.show_search_bar)
   // Group dragging is disabled while auto-balance is on so the stored manual
   // layout is preserved underneath. Bookmark dragging remains available.
-  const groupDndEnabled = effectiveEditing && !autoBalance && !manualLayout
+  const groupDndEnabled = effectiveEditing && !autoBalance && !tallestFirst && !manualLayout
   const bookmarkDndEnabled = effectiveEditing && !isDockerSystemPage
 
   // With a fixed card width the grid centres its tracks, so reserving the full
@@ -382,7 +394,66 @@ export default function BoardPage() {
     columns.forEach((col, i) => { if (col.length) lastUsed = i })
     return columns.slice(0, Math.max(lastUsed + 1, 1))
   }, [columns, effectiveEditing, board?.page?.card_max_width])
-  const manualCanvasHeight = useMemo(() => estimateManualCanvasHeight(groups), [groups])
+  // Manual layout renders from these rects: stored positions, seeded spots for
+  // groups never placed by hand, and, with overlap prevented, each group nudged
+  // clear of the others. The group being dragged follows the pointer freely.
+  const preventOverlap = manualLayout && Boolean(board?.page?.prevent_overlap)
+  const manualGap = board?.page?.card_gap ?? 12
+  const manualGapX = board?.page?.card_gap_x ?? 16
+  const manualPositions = useMemo(() => {
+    if (!manualLayout) return new Map()
+    const cardWidth = Math.min(manualCanvasWidth || MANUAL_CARD_WIDTH, MANUAL_CARD_WIDTH)
+    const sizeOf = (group) => manualSizes[group.id]
+      || { w: cardWidth, h: estimateManualGroupHeightPx(group) }
+    const seeded = seedPositions(groups, sizeOf, {
+      width: cardWidth,
+      gapX: manualGapX,
+      gapY: manualGap,
+      canvasWidth: manualCanvasWidth || cardWidth,
+    })
+    const rects = groups.map((group) => ({
+      id: group.id,
+      z: Number(group.manual_z) || 0,
+      ...(hasStoredPosition(group)
+        ? { x: Number(group.manual_x) || 0, y: Number(group.manual_y) || 0 }
+        : seeded.get(group.id)),
+      ...sizeOf(group),
+    }))
+    if (!preventOverlap) return new Map(rects.map((rect) => [rect.id, rect]))
+    const dragged = rects.find((rect) => rect.id === manualDragGroupId)
+    const resolved = resolveOverlaps(rects.filter((rect) => rect !== dragged), manualGap, manualCanvasWidth)
+    if (dragged) resolved.set(dragged.id, dragged)
+    return resolved
+  }, [groups, manualCanvasWidth, manualDragGroupId, manualGap, manualGapX, manualLayout, manualSizes, preventOverlap])
+  const manualCanvasHeight = useMemo(() => manualCanvasHeightFor(manualPositions), [manualPositions])
+
+  useEffect(() => {
+    manualLayoutRef.current = { positions: manualPositions, preventOverlap, gap: manualGap, canvasWidth: manualCanvasWidth }
+  }, [manualCanvasWidth, manualGap, manualPositions, preventOverlap])
+
+  // Measure the canvas and each group card so placement uses real sizes.
+  const manualGroupIdsKey = manualLayout ? groups.map((group) => group.id).join(',') : ''
+  useEffect(() => {
+    const canvas = manualCanvasRef.current
+    if (!manualGroupIdsKey || !canvas || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver((entries) => {
+      const sizes = {}
+      entries.forEach(({ target }) => {
+        if (target === canvas) setManualCanvasWidth(canvas.clientWidth)
+        else sizes[target.dataset.manualGroupId] = { w: target.offsetWidth, h: target.offsetHeight }
+      })
+      if (!Object.keys(sizes).length) return
+      setManualSizes((current) => {
+        const changed = Object.entries(sizes).some(([id, size]) => (
+          current[id]?.w !== size.w || current[id]?.h !== size.h
+        ))
+        return changed ? { ...current, ...sizes } : current
+      })
+    })
+    observer.observe(canvas)
+    canvas.querySelectorAll('[data-manual-group-id]').forEach((node) => observer.observe(node))
+    return () => observer.disconnect()
+  }, [manualGroupIdsKey])
 
   const persistColumns = useCallback(async (cols) => {
     try {
@@ -456,8 +527,9 @@ export default function BoardPage() {
     event.stopPropagation()
     const startX = event.clientX
     const startY = event.clientY
-    const originX = Number(group.manual_x) || 24
-    const originY = Number(group.manual_y) || 24
+    const shown = manualLayoutRef.current?.positions.get(group.id)
+    const originX = shown?.x ?? (Number(group.manual_x) || 0)
+    const originY = shown?.y ?? (Number(group.manual_y) || 0)
     const nextZ = Math.max(...groupsRef.current.map((item) => Number(item.manual_z) || 0), 0) + 1
 
     setManualDragGroupId(group.id)
@@ -486,10 +558,21 @@ export default function BoardPage() {
       const target = groupsRef.current.find((item) => item.id === group.id)
       const liveTarget = target && target.id === group.id ? target : null
       const finalGroup = liveTarget || { ...group }
+      let finalX = Number(finalGroup.manual_x) || 0
+      let finalY = Number(finalGroup.manual_y) || 0
+      const layout = manualLayoutRef.current
+      const dropped = layout?.positions.get(group.id)
+      if (layout?.preventOverlap && dropped) {
+        const others = [...layout.positions.values()].filter((rect) => rect.id !== group.id)
+        ;({ x: finalX, y: finalY } = findFreeSpot({ ...dropped, x: finalX, y: finalY }, others, layout.gap, layout.canvasWidth))
+        setGroups((current) => current.map((item) => (
+          item.id === group.id ? { ...item, manual_x: finalX, manual_y: finalY } : item
+        )))
+      }
       try {
         await groupsAPI.update(group.id, {
-          manual_x: finalGroup.manual_x,
-          manual_y: finalGroup.manual_y,
+          manual_x: finalX,
+          manual_y: finalY,
           manual_z: drag.z,
         })
       } catch (err) {
@@ -766,6 +849,19 @@ export default function BoardPage() {
       window.open(bookmark.url, '_blank', 'noopener,noreferrer')
     })
   }
+  // Plain text so it reads cleanly wherever it is pasted: the group name, then
+  // one "Title — URL" line per link, including any hidden past the visible limit.
+  const copyGroupLinks = async (group) => {
+    const lines = group.bookmarks
+      .filter((bookmark) => isBookmarkLaunchable(bookmark))
+      .map((bookmark) => `- ${bookmark.title?.trim() || bookmark.url} — ${bookmark.url}`)
+    if (!lines.length) return
+    try {
+      await navigator.clipboard.writeText([group.title, ...lines].join('\n'))
+    } catch {
+      setError('Could not copy links to the clipboard')
+    }
+  }
   const openBookmarkManager = (group) => setBookmarkManagerGroup(group)
 
   // Right-clicking blank board space while a slideshow background is active offers
@@ -804,6 +900,7 @@ export default function BoardPage() {
     onAddBookmark: (group) => setBookmarkModal({ group, bookmark: null }),
     onEditBookmarks: openBookmarkManager,
     onOpenAll: openAllInTabs,
+    onCopyGroupLinks: copyGroupLinks,
     onRenameGroup: renameGroup,
     onCopyGroup: copyGroup,
     onMoveGroup: moveGroup,
@@ -909,14 +1006,15 @@ export default function BoardPage() {
                 </div>
               </div>
             ) : manualLayout ? (
-              <div className="relative min-h-[42vh]" style={{ minHeight: `${manualCanvasHeight}px` }}>
+              <div ref={manualCanvasRef} className="relative min-h-[42vh]" style={{ minHeight: `${manualCanvasHeight}px` }}>
                 {groups.map((group) => (
                   <div
                     key={group.id}
+                    data-manual-group-id={group.id}
                     className="absolute w-full max-w-[min(100%,420px)]"
                     style={{
-                      left: `${Number(group.manual_x) || 24}px`,
-                      top: `${Number(group.manual_y) || 24}px`,
+                      left: `${manualPositions.get(group.id)?.x ?? 0}px`,
+                      top: `${manualPositions.get(group.id)?.y ?? 0}px`,
                       zIndex: Number(group.manual_z) || 0,
                     }}
                   >

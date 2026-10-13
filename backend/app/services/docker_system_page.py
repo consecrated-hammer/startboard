@@ -63,7 +63,7 @@ def ensure_docker_system_page(conn: sqlite3.Connection):
         ).fetchone()["p"],
     })
     # These fields have defaults in the schema; use them when there is no template.
-    defaults = {"max_cols": 4, "open_new_tab": 1, "layout_mode": "natural", "auto_balance": 0,
+    defaults = {"max_cols": 4, "open_new_tab": 1, "layout_mode": "natural", "prevent_overlap": 0, "auto_balance": 0,
                 "single_row_order": "natural", "card_gap": 12, "card_gap_x": 16, "bookmark_gap": 2,
                 "card_max_width": 0, "group_align": "center", "search_mode": "inherit",
                 "show_overview": 0, "analytics_enabled": 0, "bg_image_mode": "external",

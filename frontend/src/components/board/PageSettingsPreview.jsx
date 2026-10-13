@@ -15,14 +15,16 @@ function estimateGroupHeight(group) {
   const visible = group?.visible_limit > 0
     ? Math.min(group?.bookmarks?.length ?? 0, group.visible_limit)
     : (group?.bookmarks?.length ?? 0)
+  if (group?.display_mode === 'icons') return 1 + Math.ceil(visible / 4) * 2
   return 1 + visible
 }
 
-function buildColumns(groups, count, autoBalance, singleRowOrder) {
+function buildColumns(groups, count, autoBalance, singleRowOrder, tallestFirst) {
   const cols = Array.from({ length: count }, () => [])
   const sorted = [...groups].sort((a, b) => (a.column - b.column) || (a.position - b.position))
-  if (autoBalance) {
-    if (sorted.length <= count && singleRowOrder === 'tallest_first') {
+  if (tallestFirst) sorted.sort((a, b) => estimateGroupHeight(b) - estimateGroupHeight(a))
+  if (autoBalance || tallestFirst) {
+    if (autoBalance && sorted.length <= count && singleRowOrder === 'tallest_first') {
       const row = [...sorted].sort((a, b) => estimateGroupHeight(b) - estimateGroupHeight(a))
       row.forEach((group, index) => cols[index].push(group))
       return cols
@@ -328,15 +330,17 @@ function CardPreview({ group, bookmarkGap, cardMaxWidth, accent, bgColor }) {
   )
 }
 
-function LayoutPreview({ groups, maxCols, cardGap, cardGapX, autoBalance, singleRowOrder, accent, bgMode, bgColor, bgImage, bgImageFit, bgImagePosition, bgRenderEnabled, bgRenderWidth, bgRenderHeight, bgRenderPosition, viewport }) {
+function LayoutPreview({ groups, maxCols, cardGap, cardGapX, autoBalance, tallestFirst, singleRowOrder, accent, bgMode, bgColor, bgImage, bgImageFit, bgImagePosition, bgRenderEnabled, bgRenderWidth, bgRenderHeight, bgRenderPosition, viewport }) {
   const unlimited = !maxCols || Number(maxCols) <= 0
   const cols = unlimited ? 4 : Math.min(Number(maxCols), PREVIEW_COL_CAP)
   const source = (groups?.length ?? 0) > 0 ? groups : SAMPLE_GROUPS
-  const columns = buildColumns(source, cols, autoBalance, singleRowOrder)
+  const columns = buildColumns(source, cols, autoBalance, singleRowOrder, tallestFirst)
   const singleRow = autoBalance && source.length <= cols
-  const mode = autoBalance
-    ? (singleRow && singleRowOrder === 'tallest_first' ? 'Balanced · tallest first' : 'Balanced')
-    : 'Natural order'
+  const mode = tallestFirst
+    ? 'Tallest first'
+    : autoBalance
+      ? (singleRow && singleRowOrder === 'tallest_first' ? 'Balanced · tallest first' : 'Balanced')
+      : 'Natural order'
   const label = `Layout — ${unlimited ? 'Max' : `${cols} column${cols === 1 ? '' : 's'}`} · ${mode}`
   return (
     <PreviewFrame label={label} accent={accent} bgMode={bgMode} bgColor={bgColor} bgImage={bgImage} bgImageFit={bgImageFit} bgImagePosition={bgImagePosition} bgRenderEnabled={bgRenderEnabled} bgRenderWidth={bgRenderWidth} bgRenderHeight={bgRenderHeight} bgRenderPosition={bgRenderPosition} viewport={viewport} browserSized>
@@ -370,7 +374,7 @@ function PreferencesPreview({ showOverview, searchVisible, title, description, g
 
 export default function PageSettingsPreview({
   activeTab, title, description, groups,
-  maxCols, cardGap, cardGapX, bookmarkGap, cardMaxWidth, autoBalance, singleRowOrder,
+  maxCols, cardGap, cardGapX, bookmarkGap, cardMaxWidth, autoBalance, tallestFirst, singleRowOrder,
   bgMode, bgColor, bgImage, bgImageFit, bgImagePosition, bgRenderEnabled, bgRenderWidth, bgRenderHeight, bgRenderPosition, bgRotationImages, bgSlideshowIntervalValue, bgSlideshowIntervalUnit, bgSlideshowAdvanceMode,
   accent, showOverview, searchMode, searchDefault,
 }) {
@@ -435,6 +439,7 @@ export default function PageSettingsPreview({
           cardGap={cardGap}
           cardGapX={cardGapX}
           autoBalance={autoBalance}
+          tallestFirst={tallestFirst}
           singleRowOrder={singleRowOrder}
           accent={accent}
           bgMode={bgMode}

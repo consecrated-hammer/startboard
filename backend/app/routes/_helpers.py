@@ -65,6 +65,7 @@ def page_to_dict(page, user: dict | None, can_edit_flag: bool) -> dict:
         "max_cols": page["max_cols"],
         "open_new_tab": bool(page["open_new_tab"]),
         "layout_mode": layout_mode,
+        "prevent_overlap": bool(page["prevent_overlap"]) if "prevent_overlap" in page.keys() else False,
         "auto_balance": bool(page["auto_balance"]),
         "single_row_order": page["single_row_order"] if "single_row_order" in page.keys() else "natural",
         "card_gap": page["card_gap"],

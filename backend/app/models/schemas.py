@@ -10,7 +10,7 @@ Visibility = Literal["private", "shared"]
 BookmarkSort = Literal["manual", "title_asc"]
 PageSearchMode = Literal["inherit", "show", "hide"]
 PageSingleRowOrder = Literal["natural", "tallest_first"]
-PageLayoutMode = Literal["natural", "balanced", "manual"]
+PageLayoutMode = Literal["natural", "balanced", "tallest", "manual"]
 PageGroupAlign = Literal["left", "center", "right"]
 GroupDisplayMode = Literal["list", "detailed", "icons", "cloud"]
 GroupIconSize = Literal["small", "medium", "large", "xl"]
@@ -61,6 +61,7 @@ class PageUpdate(BaseModel):
     max_cols: Optional[int] = Field(default=None, ge=0, le=12)  # 0 = unlimited (fill screen)
     open_new_tab: Optional[bool] = None
     layout_mode: Optional[PageLayoutMode] = None
+    prevent_overlap: Optional[bool] = None  # manual layout: keep groups from overlapping
     auto_balance: Optional[bool] = None  # auto-space: spread groups to fill columns
     single_row_order: Optional[PageSingleRowOrder] = None
     card_gap: Optional[int] = Field(default=None, ge=0, le=48)  # px, vertical
