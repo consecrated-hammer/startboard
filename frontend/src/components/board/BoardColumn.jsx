@@ -44,6 +44,7 @@ export default function BoardColumn({ index, groups, editing, canManage = false,
             onAddBookmark={handlers.onAddBookmark}
             onEditBookmarks={handlers.onEditBookmarks}
             onOpenAll={handlers.onOpenAll}
+            onCopyGroupLinks={handlers.onCopyGroupLinks}
             onRenameGroup={handlers.onRenameGroup}
             onCopyGroup={handlers.onCopyGroup}
             onMoveGroup={handlers.onMoveGroup}

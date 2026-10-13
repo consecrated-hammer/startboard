@@ -3,15 +3,17 @@ import { useSortable } from '@dnd-kit/sortable'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowDownAZ, ArrowUpDown, Copy, GripVertical, MoreVertical, MoveRight, PencilLine, SquarePen, Trash2 } from 'lucide-react'
+import { ArrowDownAZ, ArrowUpDown, ClipboardList, Copy, GripVertical, MoreVertical, MoveRight, PencilLine, SquarePen, Trash2 } from 'lucide-react'
 import SortableBookmark from './SortableBookmark.jsx'
 import Favicon from '../Favicon.jsx'
 import ContextMenu from '../ContextMenu.jsx'
+import { isBookmarkLaunchable } from '../../lib/bookmarkLinks.js'
 
 // Kebab menu for a group. In edit mode it holds the management actions; in view
-// mode it holds just "Open all links" (extensible for future view-mode items).
+// mode it holds just the link actions (open all, copy all).
 function buildGroupMenuItems(group, canManage, managedGroup, {
   onOpenAll,
+  onCopyGroupLinks,
   onAddBookmark,
   onEditBookmarks,
   onRenameGroup,
@@ -26,6 +28,14 @@ function buildGroupMenuItems(group, canManage, managedGroup, {
       label: 'Open all links',
       icon: MoveRight,
       onClick: () => onOpenAll(group),
+    })
+  }
+  if (onCopyGroupLinks && group.bookmarks.some(isBookmarkLaunchable)) {
+    items.push({
+      key: 'copy-links',
+      label: 'Copy all links',
+      icon: ClipboardList,
+      onClick: () => onCopyGroupLinks(group),
     })
   }
   if (!canManage && !managedGroup) return items
@@ -105,7 +115,7 @@ function GroupMenu({ items, editing }) {
 }
 
 // `bookmarkGap` is a pixel value.
-export default function GroupColumn({ group, editing, canManage = false, canCustomizeBookmarkIcons = false, managedGroup = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onCopyBookmarkToPage, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
+export default function GroupColumn({ group, editing, canManage = false, canCustomizeBookmarkIcons = false, managedGroup = false, groupDndEnabled = editing, manualDragEnabled = false, manualDragActive = false, onManualDragStart, bookmarkDndEnabled = editing, openNewTab, showWebsiteIcons = true, bookmarkGap = 2, pageTitleColor = '', pageIconColor = '', onOpenBookmark, onEditBookmark, onChangeBookmarkIcon, onAddBookmark, onEditBookmarks, onOpenAll, onCopyGroupLinks, onRenameGroup, onCopyGroup, onMoveGroup, onSetBookmarkSort, onDeleteGroup, onDuplicateBookmark, onMoveBookmark, onCopyBookmarkLink, onCopyBookmarkToPage, onMoveBookmarkTop, onMoveBookmarkBottom, onDeleteBookmark }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `g:${group.id}`,
     data: { type: 'group', group },
@@ -122,13 +132,14 @@ export default function GroupColumn({ group, editing, canManage = false, canCust
   const [contextMenu, setContextMenu] = useState(null)
   const menuItems = useMemo(() => buildGroupMenuItems(group, canManage, managedGroup, {
     onOpenAll,
+    onCopyGroupLinks,
     onAddBookmark,
     onEditBookmarks,
     onRenameGroup,
     onCopyGroup,
     onMoveGroup,
     onDeleteGroup,
-  }), [group, canManage, managedGroup, onOpenAll, onAddBookmark, onEditBookmarks, onRenameGroup, onCopyGroup, onMoveGroup, onDeleteGroup])
+  }), [group, canManage, managedGroup, onOpenAll, onCopyGroupLinks, onAddBookmark, onEditBookmarks, onRenameGroup, onCopyGroup, onMoveGroup, onDeleteGroup])
   const openContextMenu = (event) => {
     if (!menuItems.length) return
     if (event.target instanceof Element && event.target.closest('[data-bookmark-context="true"]')) return

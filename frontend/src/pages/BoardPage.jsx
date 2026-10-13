@@ -849,6 +849,19 @@ export default function BoardPage() {
       window.open(bookmark.url, '_blank', 'noopener,noreferrer')
     })
   }
+  // Plain text so it reads cleanly wherever it is pasted: the group name, then
+  // one "Title — URL" line per link, including any hidden past the visible limit.
+  const copyGroupLinks = async (group) => {
+    const lines = group.bookmarks
+      .filter((bookmark) => isBookmarkLaunchable(bookmark))
+      .map((bookmark) => `- ${bookmark.title?.trim() || bookmark.url} — ${bookmark.url}`)
+    if (!lines.length) return
+    try {
+      await navigator.clipboard.writeText([group.title, ...lines].join('\n'))
+    } catch {
+      setError('Could not copy links to the clipboard')
+    }
+  }
   const openBookmarkManager = (group) => setBookmarkManagerGroup(group)
 
   // Right-clicking blank board space while a slideshow background is active offers
@@ -887,6 +900,7 @@ export default function BoardPage() {
     onAddBookmark: (group) => setBookmarkModal({ group, bookmark: null }),
     onEditBookmarks: openBookmarkManager,
     onOpenAll: openAllInTabs,
+    onCopyGroupLinks: copyGroupLinks,
     onRenameGroup: renameGroup,
     onCopyGroup: copyGroup,
     onMoveGroup: moveGroup,
